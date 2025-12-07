@@ -9,5 +9,3 @@ VOLUME /app
 # configure the project virtual environment path and set cache location
 ENV UV_PROJECT_ENVIRONMENT=/app/.venv@docker
 ENV UV_CACHE_DIR=.uv_cache@docker
-
-CMD ["python", "src/main.py"]
