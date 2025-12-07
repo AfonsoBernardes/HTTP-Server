@@ -1,0 +1,11 @@
+name: http-server
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    volumes:
+      - ./backend:/app
+    init: True
