@@ -8,5 +8,8 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend:/app
+    environment:
+      - HOST=0.0.0.0
+      - BACKEND_PORT=8000
     init: True
     command: /bin/sh -c "./scripts/sync.sh && ./scripts/run.sh"
