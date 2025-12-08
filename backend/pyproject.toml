@@ -9,6 +9,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
 
+# required according to PEP 518,
+# specifying the minimum dependencies needed to build the project and defining the build backend used for packaging
 [build-system]
 requires = ["uv_build>=0.9.16,<0.10.0"]
 
