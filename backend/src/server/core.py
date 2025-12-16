@@ -23,6 +23,7 @@ class HttpServer:
         # puts the socket into server mode, listening for up to "n" connections
         self.server_socket.listen(1)
 
+        print(f"Server started on {self.host}:{self.port}")
         while True:
             # waits for an incoming connection
             # conn is a new socket object usable to send and receive data on the connection,
@@ -37,8 +38,6 @@ class HttpServer:
         client_connection.recv(1024).decode("utf-8")
 
         response = "Hello World!"
-
-        # 📤 Send response
         client_connection.send(response.encode("utf-8"))
         client_connection.close()
 
