@@ -1,9 +1,8 @@
 import os
-import threading
 from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
 
 
-class HttpServer:
+class TCPServer:
     def __init__(self):
         # AF_INET is the Internet address family for IPv4.
         # SOCK_STREAM is the socket type for TCP, the protocol that will be used to transport messages in the network.
@@ -29,17 +28,20 @@ class HttpServer:
             # conn is a new socket object usable to send and receive data on the connection,
             # address is the address bound to the socket on the other end of the connection.
             client_connection, client_address = self.server_socket.accept()
+            print(f"Client {client_address} connected")
 
-            thread = threading.Thread(target=self.handle_request, args=(client_connection,))
-            thread.start()
+            response = self.handle_request(client_connection)
+            print(response)
 
     @staticmethod
-    def handle_request(client_connection: socket):
+    def handle_request(client_connection: socket) -> str:
         client_connection.recv(1024).decode("utf-8")
 
         response = "Hello World!"
-        client_connection.send(response.encode("utf-8"))
+        client_connection.send(response.encode("utf-8")) # encode as bytes
         client_connection.close()
+
+        return response
 
     def __enter__(self):
         self.run_server()
