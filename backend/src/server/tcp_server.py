@@ -30,18 +30,19 @@ class TCPServer:
             client_connection, client_address = self.server_socket.accept()
             print(f"Client {client_address} connected")
 
+            # receive data from the socket. The return value is a bytes object representing the data received.
+            # maximum amount of data to be received at once is specified by bufsize.
+            client_connection.recv(1024).decode("utf-8")
+
             response = self.handle_request(client_connection)
-            print(response)
+            print(f"Server response: {response}")
+
+            client_connection.send(response.encode("utf-8"))  # encode as bytes
+            client_connection.close()
 
     @staticmethod
     def handle_request(client_connection: socket) -> str:
-        client_connection.recv(1024).decode("utf-8")
-
-        response = "Hello World!"
-        client_connection.send(response.encode("utf-8")) # encode as bytes
-        client_connection.close()
-
-        return response
+        return "Hello from TCP Server!"
 
     def __enter__(self):
         self.run_server()
