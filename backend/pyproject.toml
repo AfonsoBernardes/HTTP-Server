@@ -17,14 +17,6 @@ requires = ["uv_build>=0.9.16,<0.10.0"]
 [tool.uv.extra-build-dependencies]
 http-server = ["setuptools"]
 
-# Where do my Python packages live?
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-# Where should setuptools search for packages automatically?
-[tool.setuptools.packages.find]
-where = ["src"]
-
 [tool.black]
 line-length = 120
 
