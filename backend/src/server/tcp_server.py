@@ -13,7 +13,7 @@ class TCPServer:
         self.server_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 
         self.host = os.getenv("HOST", "0.0.0.0")
-        self.port = int(os.getenv("BACKEND_PORT", "8080"))
+        self.port = int(os.getenv("BACKEND_PORT", "8000"))
 
     def run_server(self) -> tuple[socket, tuple[str, int]]:
         # associate the socket with the server address
