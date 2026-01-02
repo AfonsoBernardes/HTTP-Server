@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
+from pathlib import Path
 
 from server.tcp_server import TCPServer
 
 
 class HTTPServer(TCPServer):
-    headers = {
+    HEADERS = {
         "Server": "Afonso's Server",
         "Content-Type": "text/html",
     }
@@ -14,19 +15,17 @@ class HTTPServer(TCPServer):
         404: "Not Found",
     }
 
+    TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
+
     def handle_request(self, data) -> str:
         status_line = self.get_status_line(status_code=200)
         response_headers = self.get_response_headers()
 
-        response_body = """
-        <html>
-            <body>
-                <h1>Request received!</h1>
-            <body>
-        </html>
-        """
+        get_request_template = self.TEMPLATES_PATH / "get_request.html"
+        with get_request_template.open(mode="r", encoding="utf-8") as template:
+            response_body = template.read().format(server_name=self.HEADERS["Server"])
 
-        response = f"{status_line}{response_headers} \r\n {response_body}"
+        response = f"{status_line}{response_headers}\r\n{response_body}"
         return response
 
     def get_status_line(self, status_code: int) -> str:
@@ -37,13 +36,13 @@ class HTTPServer(TCPServer):
         return status_line
 
     def get_response_headers(self, extra_headers: dict[str, str] = None) -> str:
-        headers = self.headers.copy()
+        headers = self.HEADERS.copy()
         headers["Date"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
 
         if extra_headers:
             headers.update(extra_headers)
 
-        response_headers = "\r\n".join(
-            f"{header_name}: {header_value}" for header_name, header_value in headers.items()
+        response_headers = "".join(
+            f"{header_name}: {header_value}\r\n" for header_name, header_value in headers.items()
         )
         return response_headers
