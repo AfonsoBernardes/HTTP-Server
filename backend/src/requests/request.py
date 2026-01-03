@@ -1,17 +1,17 @@
 from typing import Optional
 
-from requests.exceptions import InvalidDecoding
+from requests.exceptions import InvalidDecoding, InvalidHTTPMethod
 from requests.schema import RequestMethod, RequestProtocol
 
 
 class Request:
-    def __init__(self, raw_data: bytes):
-        self.method: RequestMethod
-        self.target: str
-        self.protocol: RequestProtocol
-        self.headers: dict = {}
-        self.body: Optional[bytes]
+    method: RequestMethod
+    target: str
+    protocol: RequestProtocol
+    headers: dict = {}
+    body: Optional[bytes]
 
+    def __init__(self, raw_data: bytes):
         try:
             request_headers, self.body = raw_data.split(b"\r\n\r\n", maxsplit=1)
             request_headers = request_headers.decode("utf-8")  # decode only headers
@@ -22,7 +22,19 @@ class Request:
 
         # parse start-line: <METHOD> <TARGET> <PROTOCOL>
         start_line = request_headers.pop(0)
-        self.method, self.target, self.protocol = start_line.split(" ")
+        start_line = start_line.split(" ")
+
+        try:
+            self.method = RequestMethod(start_line[0])
+        except ValueError:
+            raise InvalidHTTPMethod(start_line[0])
+
+        self.target = start_line[1]
+
+        try:
+            self.protocol = RequestProtocol(start_line[2])
+        except ValueError:
+            pass
 
         for header in request_headers:
             key, value = header.split(": ", maxsplit=1)
