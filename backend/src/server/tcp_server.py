@@ -1,6 +1,8 @@
 import os
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
+
+from requests.request import Request
 
 
 class TCPServer(ABC):
@@ -31,20 +33,20 @@ class TCPServer(ABC):
             client_connection, client_address = self.server_socket.accept()
             print(f"Client {client_address} connected")
 
-            # receive data from the socket. The return value is a bytes object representing the data received.
-            # maximum amount of data to be received at once is specified by bufsize.
-            # TODO: Would it be better to decode inside the handle request function? If so, why?
-            request = client_connection.recv(1024).decode("utf-8")
-
-            response = self.handle_request(request)
+            response = self.handle_request(client_connection)
             print(f"Server response: {response}")
 
             client_connection.send(response.encode("utf-8"))  # encode as bytes
             client_connection.close()
 
     @abstractmethod
-    def handle_request(self, request: str) -> str:
-        return "Hello from TCP Server!"
+    def handle_request(self, client_connection: socket) -> str:
+        # receive data from the socket. The return value is a bytes object representing the data received.
+        # maximum amount of data to be received at once is specified by bufsize.
+        byte_data = client_connection.recv(1024)
+        request = Request().parse(byte_data)
+
+        return request
 
     def __enter__(self):
         self.run_server()
