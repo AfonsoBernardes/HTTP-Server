@@ -1,8 +1,11 @@
+import logging
 import os
 from abc import ABC, abstractmethod
 from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
 
 from requests.request import Request
+
+logger = logging.getLogger(__name__)
 
 
 class TCPServer(ABC):
@@ -25,32 +28,27 @@ class TCPServer(ABC):
         # puts the socket into server mode, listening for up to "n" connections
         self.server_socket.listen(1)
 
-        print(f"Server started on {self.host}:{self.port}")
+        logger.info(f"Server started on {self.host}:{self.port}\n")
         while True:
             # waits for an incoming connection
             # conn is a new socket object usable to send and receive data on the connection,
             # address is the address bound to the socket on the other end of the connection.
             client_connection, client_address = self.server_socket.accept()
-            print(f"Client {client_address} connected")
+            logger.info(f"Client {client_address} connected")
 
             response = self.handle_request(client_connection)
-            print(f"Server response: {response}")
-
             client_connection.send(response.encode("utf-8"))  # encode as bytes
+
+            logger.info(f"Stopping server on {self.host}:{self.port}")
             client_connection.close()
 
     @abstractmethod
     def handle_request(self, client_connection: socket) -> str:
-        # receive data from the socket. The return value is a bytes object representing the data received.
-        # maximum amount of data to be received at once is specified by bufsize.
-        byte_data = client_connection.recv(1024)
-        request = Request().parse(byte_data)
-
-        return request
+        pass
 
     def __enter__(self):
         self.run_server()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print(f"Stopping server on {self.host}:{self.port}")
+        logger.info(f"Stopping server on {self.host}:{self.port}")
         self.server_socket.close()
