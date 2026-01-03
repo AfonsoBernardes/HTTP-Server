@@ -1,6 +1,6 @@
 from typing import Optional
 
-from requests.exceptions import InvalidDecoding, InvalidHTTPMethod
+from requests.exceptions import InvalidDecoding, InvalidHTTPMethod, InvalidHTTPProtocol
 from requests.schema import RequestMethod, RequestProtocol
 
 
@@ -8,7 +8,7 @@ class Request:
     method: RequestMethod
     target: str
     protocol: RequestProtocol
-    headers: dict = {}
+    headers: dict
     body: Optional[bytes]
 
     def __init__(self, raw_data: bytes):
@@ -34,8 +34,9 @@ class Request:
         try:
             self.protocol = RequestProtocol(start_line[2])
         except ValueError:
-            pass
+            raise InvalidHTTPProtocol(start_line[2])
 
+        self.headers = {}
         for header in request_headers:
             key, value = header.split(": ", maxsplit=1)
             self.headers[key] = value
