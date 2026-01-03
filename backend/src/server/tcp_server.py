@@ -3,8 +3,6 @@ import os
 from abc import ABC, abstractmethod
 from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
 
-from requests.request import Request
-
 logger = logging.getLogger(__name__)
 
 
@@ -28,7 +26,7 @@ class TCPServer(ABC):
         # puts the socket into server mode, listening for up to "n" connections
         self.server_socket.listen(1)
 
-        logger.info(f"Server started on {self.host}:{self.port}\n")
+        logger.info(f"Server started on {self.host}:{self.port}")
         while True:
             # waits for an incoming connection
             # conn is a new socket object usable to send and receive data on the connection,
@@ -39,7 +37,7 @@ class TCPServer(ABC):
             response = self.handle_request(client_connection)
             client_connection.send(response.encode("utf-8"))  # encode as bytes
 
-            logger.info(f"Stopping server on {self.host}:{self.port}")
+            logger.info(f"Closing client {client_address} connection")
             client_connection.close()
 
     @abstractmethod
