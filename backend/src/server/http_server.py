@@ -17,7 +17,9 @@ class HTTPServer(TCPServer):
 
     TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
 
-    def handle_request(self, data) -> str:
+    def handle_request(self, request: str) -> str:
+        # TODO: need to parse request to check URL, get method and route action.
+        # how can I efficiently route a request based on the method? would a decorator help here?
         status_line = self.get_status_line(status_code=200)
         response_headers = self.get_response_headers()
 
