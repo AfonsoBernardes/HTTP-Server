@@ -1,4 +1,4 @@
-from backend.displayable_exceptions.displayable_exception import DisplayableException
+from displayable_exceptions.displayable_exception import DisplayableException
 
 
 class InvalidDecoding(DisplayableException):
