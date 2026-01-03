@@ -1,10 +1,17 @@
 import logging
+import time
 
 from server.http_server import HTTPServer
 
 
 def run_server():
-    logging.basicConfig(level=logging.INFO, style="{", format="{asctime} {levelname} {name}:{lineno} -- {message}")
+    logging.Formatter.converter = time.gmtime
+    logging.basicConfig(
+        level=logging.INFO,
+        style="{",
+        format="{asctime} {levelname} {name}:{lineno} -- {message}",
+        datefmt="%Y-%m-%dT%H:%M:%SZ",
+    )
 
     # Let's restrict requests to GET, POST.
     # Find out what the structure of a request is like and start parsing line by line.
