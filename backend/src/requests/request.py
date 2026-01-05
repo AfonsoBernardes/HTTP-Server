@@ -13,12 +13,13 @@ class Request:
 
     def __init__(self, raw_data: bytes):
         try:
-            request_headers, self.body = raw_data.split(b"\r\n\r\n", maxsplit=1)
+            request_headers, request_body = raw_data.split(b"\r\n\r\n", maxsplit=1)
             request_headers = request_headers.decode("utf-8")  # decode only headers
         except UnicodeDecodeError:
             raise InvalidDecoding()
-
-        request_headers = request_headers.splitlines()
+        else:
+            self.body = request_body if request_body else None
+            request_headers = request_headers.splitlines()
 
         # parse start-line: <METHOD> <TARGET> <PROTOCOL>
         start_line = request_headers.pop(0)
