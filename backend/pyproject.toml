@@ -27,6 +27,7 @@ extend_skip_glob = ".venv*"
 
 [dependency-groups]
 dev = [
+    "asserts>=0.14.0",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
 ]
