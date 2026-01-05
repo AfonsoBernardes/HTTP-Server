@@ -4,7 +4,7 @@ from enum import Enum
 class RequestMethod(str, Enum):
     DELETE = "DELETE"
     GET = "GET"
-    PATCH= "PATCH"
+    PATCH = "PATCH"
     POST = "POST"
     PUT = "PUT"
 
