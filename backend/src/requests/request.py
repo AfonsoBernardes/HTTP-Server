@@ -1,6 +1,6 @@
 from typing import Optional
 
-from requests.exceptions import InvalidDecoding, InvalidHTTPMethod, InvalidHTTPProtocol
+from requests.exceptions import InvalidDecoding, InvalidHTTPMethod, InvalidHTTPProtocol, InvalidRequest
 from requests.schema import RequestMethod, RequestProtocol
 
 
@@ -17,6 +17,8 @@ class Request:
             request_headers = request_headers.decode("utf-8")  # decode only headers
         except UnicodeDecodeError:
             raise InvalidDecoding()
+        except ValueError:
+            raise InvalidRequest()
         else:
             self.body = request_body if request_body else None
             request_headers = request_headers.splitlines()

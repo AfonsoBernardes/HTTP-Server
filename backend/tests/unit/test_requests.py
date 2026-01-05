@@ -1,7 +1,7 @@
 import pytest
 from asserts import assert_equal, assert_raises
 
-from requests.exceptions import InvalidHTTPMethod
+from requests.exceptions import InvalidHTTPMethod, InvalidRequest
 from requests.request import Request
 from requests.schema import RequestMethod, RequestProtocol
 
@@ -41,3 +41,16 @@ class TestRequestMethod:
 
         with assert_raises(InvalidHTTPMethod, error_message):
             Request(raw_data)
+
+
+    @pytest.mark.parametrize(
+        "invalid_byte_request",
+        [
+            b"GET / HTTP/1.1",
+            b"GET / HTTP/1.1\r\n",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_without_two_linebreaks(self, invalid_byte_request):
+        with assert_raises(InvalidRequest):
+            Request(invalid_byte_request)
