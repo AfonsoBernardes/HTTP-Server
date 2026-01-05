@@ -2,8 +2,11 @@ from enum import Enum
 
 
 class RequestMethod(str, Enum):
-    GET = "GET"
     DELETE = "DELETE"
+    GET = "GET"
+    PATCH= "PATCH"
+    POST = "POST"
+    PUT = "PUT"
 
 
 class RequestProtocol(str, Enum):
