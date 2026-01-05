@@ -8,7 +8,7 @@ class Request:
     method: RequestMethod
     target: str
     protocol: RequestProtocol
-    headers: dict
+    headers: dict[str, str]
     body: Optional[bytes]
 
     def __init__(self, raw_data: bytes):
