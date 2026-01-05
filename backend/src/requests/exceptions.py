@@ -6,6 +6,7 @@ class InvalidRequest(DisplayableException):
     def __init__(self):
         super().__init__("invalid request; make sure the request follows HTTP/1.X standards")
 
+
 class InvalidDecoding(DisplayableException):
     def __init__(self):
         super().__init__("unable to decode request")
