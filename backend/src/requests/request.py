@@ -1,6 +1,12 @@
 from typing import Optional
 
-from requests.exceptions import InvalidDecoding, InvalidHTTPMethod, InvalidHTTPProtocol, InvalidRequest
+from requests.exceptions import (
+    InvalidDecoding,
+    InvalidHTTPHeaders,
+    InvalidHTTPMethod,
+    InvalidHTTPProtocol,
+    InvalidRequest,
+)
 from requests.schema import RequestMethod, RequestProtocol
 
 
@@ -41,5 +47,8 @@ class Request:
 
         self.headers = {}
         for header in request_headers:
-            key, value = header.split(": ", maxsplit=1)
-            self.headers[key] = value
+            try:
+                key, value = header.split(": ", maxsplit=1)
+                self.headers[key] = value
+            except ValueError:
+                raise InvalidHTTPHeaders()

@@ -1,12 +1,24 @@
 import pytest
 from asserts import assert_equal, assert_raises
 
-from requests.exceptions import InvalidHTTPMethod, InvalidRequest, InvalidHTTPProtocol
+from requests.exceptions import InvalidHTTPMethod, InvalidRequest, InvalidHTTPProtocol, InvalidHTTPHeaders
 from requests.request import Request
 from requests.schema import RequestMethod, RequestProtocol
 
 
 class TestRequestParsing:
+    @pytest.mark.parametrize(
+        "invalid_byte_request",
+        [
+            b"GET / HTTP/1.1",
+            b"GET / HTTP/1.1\r\n",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_without_two_linebreaks(self, invalid_byte_request):
+        with assert_raises(InvalidRequest):
+            Request(invalid_byte_request)
+
     @pytest.mark.parametrize(
         "request_headers, expected_headers",
         [
@@ -26,16 +38,18 @@ class TestRequestParsing:
         assert_equal(request.headers, expected_headers)
 
     @pytest.mark.parametrize(
-        "invalid_byte_request",
+        "invalid_request_headers",
         [
-            b"GET / HTTP/1.1",
-            b"GET / HTTP/1.1\r\n",
+            "Server- Test",
+            "Server Test Server",
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_parse_request_without_two_linebreaks(self, invalid_byte_request):
-        with assert_raises(InvalidRequest):
-            Request(invalid_byte_request)
+    async def test_should_fail_to_parse_request_with_invalid_headers(self, invalid_request_headers: str):
+        raw_data = f'GET / HTTP/1.1\r\n{invalid_request_headers}\r\n\r\n'.encode("utf-8")
+
+        with assert_raises(InvalidHTTPHeaders):
+            Request(raw_data)
 
 class TestRequestMethod:
     EXPECTED_METHODS = ", ".join(method.value for method in RequestMethod)
