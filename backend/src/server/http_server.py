@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
+from socket import socket
 
+from requests.request import Request
 from server.tcp_server import TCPServer
 
 
@@ -17,7 +19,12 @@ class HTTPServer(TCPServer):
 
     TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
 
-    def handle_request(self, request: str) -> str:
+    def handle_request(self, client_connection: socket) -> str:
+        # receive data from the socket. The return value is a bytes object representing the data received.
+        # maximum amount of data to be received at once is specified by bufsize.
+        byte_data = client_connection.recv(1024)
+        request = Request(byte_data)
+
         # TODO: need to parse request to check URL, get method and route action.
         # how can I efficiently route a request based on the method? would a decorator help here?
         status_line = self.get_status_line(status_code=200)
