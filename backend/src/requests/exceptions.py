@@ -24,3 +24,10 @@ class InvalidHTTPProtocol(DisplayableException):
 
     def __init__(self, protocol: str):
         super().__init__(f"invalid HTTP protocol: expected [{", ".join(self.EXPECTED_PROTOCOLS)}], got {protocol!r}")
+
+
+class InvalidHTTPHeaders(DisplayableException):
+    def __init__(self):
+        super().__init__(
+            f"invalid HTTP headers: make sure headers are key-value pairs, separated by ': ' and a line breaker"
+        )
