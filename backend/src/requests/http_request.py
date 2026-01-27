@@ -18,6 +18,9 @@ class HTTPRequest:
     body: Optional[bytes]
 
     def __init__(self, raw_data: bytes):
+        self.parse_request(raw_data)
+
+    def parse_request(self, raw_data: bytes):
         try:
             request_headers, request_body = raw_data.split(b"\r\n\r\n", maxsplit=1)
             request_headers = request_headers.decode("utf-8")  # decode only headers
