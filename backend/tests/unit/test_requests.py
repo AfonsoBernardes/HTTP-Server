@@ -2,8 +2,8 @@ import pytest
 from asserts import assert_equal, assert_raises
 
 from requests.exceptions import InvalidHTTPMethod, InvalidRequest, InvalidHTTPProtocol, InvalidHTTPHeaders
-from requests.request import Request
-from requests.schema import RequestMethod, RequestProtocol
+from requests.http_request import HTTPRequest
+from requests.schema import HTTPRequestMethod, HTTPRequestProtocol
 
 
 class TestRequestParsing:
@@ -17,7 +17,7 @@ class TestRequestParsing:
     @pytest.mark.asyncio
     async def test_should_fail_to_parse_request_without_two_linebreaks(self, invalid_byte_request):
         with assert_raises(InvalidRequest):
-            Request(invalid_byte_request)
+            HTTPRequest(invalid_byte_request)
 
     @pytest.mark.parametrize(
         "request_headers, expected_headers",
@@ -30,11 +30,11 @@ class TestRequestParsing:
     @pytest.mark.asyncio
     async def test_should_parse_request_with_valid_headers(self, request_headers: str, expected_headers: dict):
         raw_data = f'GET / HTTP/1.1\r\n{request_headers}\r\n\r\n'.encode("utf-8")
-        request = Request(raw_data)
+        request = HTTPRequest(raw_data)
 
-        assert_equal(request.method, RequestMethod.GET)
+        assert_equal(request.method, HTTPRequestMethod.GET)
         assert_equal(request.target, "/")
-        assert_equal(request.protocol, RequestProtocol.HTTP_1_1)
+        assert_equal(request.protocol, HTTPRequestProtocol.HTTP_1_1)
         assert_equal(request.headers, expected_headers)
 
     @pytest.mark.parametrize(
@@ -49,25 +49,25 @@ class TestRequestParsing:
         raw_data = f'GET / HTTP/1.1\r\n{invalid_request_headers}\r\n\r\n'.encode("utf-8")
 
         with assert_raises(InvalidHTTPHeaders):
-            Request(raw_data)
+            HTTPRequest(raw_data)
 
 class TestRequestMethod:
-    EXPECTED_METHODS = ", ".join(method.value for method in RequestMethod)
+    EXPECTED_METHODS = ", ".join(method.value for method in HTTPRequestMethod)
 
     @pytest.mark.parametrize(
         "request_method",
         [
-            request_method.value for request_method in RequestMethod
+            request_method.value for request_method in HTTPRequestMethod
         ],
     )
     @pytest.mark.asyncio
     async def test_should_parse_request_with_valid_method(self, request_method: str):
         raw_data = f"{request_method} / HTTP/1.1\r\n\r\n".encode("utf-8")
-        request = Request(raw_data)
+        request = HTTPRequest(raw_data)
 
-        assert_equal(request.method, RequestMethod(request_method))
+        assert_equal(request.method, HTTPRequestMethod(request_method))
         assert_equal(request.target, "/")
-        assert_equal(request.protocol, RequestProtocol.HTTP_1_1)
+        assert_equal(request.protocol, HTTPRequestProtocol.HTTP_1_1)
         assert_equal(request.headers, {})
         assert_equal(request.body, None)
 
@@ -85,27 +85,27 @@ class TestRequestMethod:
         raw_data = f"{invalid_request_method} / HTTP/1.1\r\n\r\n".encode("utf-8")
 
         with assert_raises(InvalidHTTPMethod, error_message):
-            Request(raw_data)
+            HTTPRequest(raw_data)
 
 
 
 class TestRequestProtocol:
-    EXPECTED_PROTOCOL = ", ".join(protocol.value for protocol in RequestProtocol)
+    EXPECTED_PROTOCOL = ", ".join(protocol.value for protocol in HTTPRequestProtocol)
 
     @pytest.mark.parametrize(
         "request_protocol",
         [
-            request_protocol.value for request_protocol in RequestProtocol
+            request_protocol.value for request_protocol in HTTPRequestProtocol
         ],
     )
     @pytest.mark.asyncio
     async def test_should_parse_request_with_valid_protocol(self, request_protocol: str):
         raw_data = f"GET / {request_protocol}\r\n\r\n".encode("utf-8")
-        request = Request(raw_data)
+        request = HTTPRequest(raw_data)
 
         assert_equal(request.method, "GET")
         assert_equal(request.target, "/")
-        assert_equal(request.protocol, RequestProtocol(request_protocol))
+        assert_equal(request.protocol, HTTPRequestProtocol(request_protocol))
         assert_equal(request.headers, {})
         assert_equal(request.body, None)
 
@@ -123,4 +123,4 @@ class TestRequestProtocol:
         raw_data = f"GET / {invalid_request_protocol}\r\n\r\n".encode("utf-8")
 
         with assert_raises(InvalidHTTPProtocol, error_message):
-            Request(raw_data)
+            HTTPRequest(raw_data)

@@ -7,13 +7,13 @@ from requests.exceptions import (
     InvalidHTTPProtocol,
     InvalidRequest,
 )
-from requests.schema import RequestMethod, RequestProtocol
+from requests.schema import HTTPRequestMethod, HTTPRequestProtocol
 
 
-class Request:
-    method: RequestMethod
+class HTTPRequest:
+    method: HTTPRequestMethod
     target: str
-    protocol: RequestProtocol
+    protocol: HTTPRequestProtocol
     headers: dict[str, str]
     body: Optional[bytes]
 
@@ -34,14 +34,14 @@ class Request:
         start_line = start_line.split(" ")
 
         try:
-            self.method = RequestMethod(start_line[0])
+            self.method = HTTPRequestMethod(start_line[0])
         except ValueError:
             raise InvalidHTTPMethod(start_line[0])
 
         self.target = start_line[1]
 
         try:
-            self.protocol = RequestProtocol(start_line[2])
+            self.protocol = HTTPRequestProtocol(start_line[2])
         except ValueError:
             raise InvalidHTTPProtocol(start_line[2])
 
