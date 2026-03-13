@@ -6,7 +6,7 @@ authors = [
 ]
 description = "Simple HTTP server implemented in Python."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 dependencies = []
 
 # required according to PEP 518,
