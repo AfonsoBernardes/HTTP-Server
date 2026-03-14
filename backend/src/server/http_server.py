@@ -2,6 +2,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from socket import socket
 
+from requests.exceptions import (
+    InvalidDecoding,
+    InvalidRequest,
+)
 from requests.http_request import HTTPRequest
 from server.tcp_server import TCPServer
 
@@ -20,10 +24,37 @@ class HTTPServer(TCPServer):
     TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
 
     def handle_request(self, client_connection: socket) -> str:
-        # receive data from the socket. The return value is a bytes object representing the data received.
-        # maximum amount of data to be received at once is specified by bufsize.
-        byte_data = client_connection.recv(1024)
-        request = HTTPRequest(byte_data)
+        # loop makes sure all headers are present in the request
+        raw_data = b""
+        while b"\r\n\r\n" not in raw_data:
+            # receive data from the socket. The return value is a bytes object representing the data received.
+            # maximum amount of data to be received at once is specified by bufsize.
+            chunk_data = client_connection.recv(1024)
+            if not chunk_data:
+                break
+            raw_data += chunk_data
+
+        try:
+            headers, body = raw_data.split(b"\r\n\r\n", maxsplit=1)
+            headers = headers.decode("utf-8")  # decode only headers
+        except UnicodeDecodeError:
+            raise InvalidDecoding()
+        except ValueError:
+            raise InvalidRequest()
+
+        request = HTTPRequest()
+        request.parse_headers(headers)
+
+        # since data might arrive in chunks, parsing the body requires us to know how long it is
+        content_length = int(request.headers.get("Content-Length", 0))
+        while len(body) < content_length:
+            chunk_data = client_connection.recv(1024)
+            if not chunk_data:
+                break
+            body += chunk_data
+
+        body = body.decode("utf-8") if body else None
+        request.parse_body(body)
 
         # TODO: need to parse request to check URL, get method and route action.
         # how can I efficiently route a request based on the method? would a decorator help here?
