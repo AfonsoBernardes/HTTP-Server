@@ -3,6 +3,7 @@ from pathlib import Path
 from socket import socket
 
 from requests.exceptions import (
+    InvalidBodyLength,
     InvalidDecoding,
     InvalidRequest,
 )
@@ -36,7 +37,7 @@ class HTTPServer(TCPServer):
 
         try:
             headers, body = raw_data.split(b"\r\n\r\n", maxsplit=1)
-            headers = headers.decode("utf-8")  # decode only headers
+            headers = headers.decode(encoding="UTF-8", errors="strict")  # decode only headers
         except UnicodeDecodeError:
             raise InvalidDecoding()
         except ValueError:
@@ -53,7 +54,14 @@ class HTTPServer(TCPServer):
                 break
             body += chunk_data
 
-        body = body.decode("utf-8") if body else None
+        if len(body) != content_length:
+            raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+
+        try:
+            body = body.decode(encoding="UTF-8", errors="strict") if body else None
+        except UnicodeDecodeError:
+            raise InvalidDecoding()
+
         request.parse_body(body)
 
         # TODO: need to parse request to check URL, get method and route action.
