@@ -1,5 +1,6 @@
 from displayable_exceptions.displayable_exception import DisplayableException
-from request.schema import HTTPRequestMethod, HTTPRequestProtocol
+from request.schema import HTTPRequestMethod
+from server.schema import HTTPProtocol
 
 
 class InvalidHTTPMethod(DisplayableException):
@@ -10,7 +11,7 @@ class InvalidHTTPMethod(DisplayableException):
 
 
 class InvalidHTTPProtocol(DisplayableException):
-    EXPECTED_PROTOCOLS = [protocol.value for protocol in HTTPRequestProtocol]
+    EXPECTED_PROTOCOLS = [protocol.value for protocol in HTTPProtocol]
 
     def __init__(self, protocol: str):
         super().__init__(f"invalid HTTP protocol: expected [{", ".join(self.EXPECTED_PROTOCOLS)}], got {protocol!r}")

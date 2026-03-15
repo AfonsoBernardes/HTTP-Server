@@ -3,7 +3,8 @@ from asserts import assert_equal, assert_raises
 
 from request.exceptions import InvalidHTTPMethod, InvalidHTTPProtocol, InvalidHTTPHeaders
 from request.http_request import HTTPRequest
-from request.schema import HTTPRequestMethod, HTTPRequestProtocol
+from request.schema import HTTPRequestMethod
+from server.schema import HTTPProtocol
 
 
 class TestRequestMethod:
@@ -24,7 +25,7 @@ class TestRequestMethod:
 
         assert_equal(request.method, HTTPRequestMethod(request_method))
         assert_equal(request.target, "/")
-        assert_equal(request.protocol, HTTPRequestProtocol.HTTP_1_1)
+        assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, {})
         assert_equal(request.body, None)
 
@@ -48,12 +49,12 @@ class TestRequestMethod:
 
 
 class TestRequestProtocol:
-    EXPECTED_PROTOCOL = ", ".join(protocol.value for protocol in HTTPRequestProtocol)
+    EXPECTED_PROTOCOL = ", ".join(protocol.value for protocol in HTTPProtocol)
 
     @pytest.mark.parametrize(
         "request_protocol",
         [
-            request_protocol.value for request_protocol in HTTPRequestProtocol
+            request_protocol.value for request_protocol in HTTPProtocol
         ],
     )
     @pytest.mark.asyncio
@@ -65,7 +66,7 @@ class TestRequestProtocol:
 
         assert_equal(request.method, "GET")
         assert_equal(request.target, "/")
-        assert_equal(request.protocol, HTTPRequestProtocol(request_protocol))
+        assert_equal(request.protocol, HTTPProtocol(request_protocol))
         assert_equal(request.headers, {})
         assert_equal(request.body, None)
 
@@ -105,7 +106,7 @@ class TestRequestHeadersParsing:
 
         assert_equal(request.method, HTTPRequestMethod.GET)
         assert_equal(request.target, "/")
-        assert_equal(request.protocol, HTTPRequestProtocol.HTTP_1_1)
+        assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, expected_headers)
 
     @pytest.mark.parametrize(
