@@ -13,7 +13,7 @@ class FakeSocket:
 
 
 
-class TestServerRequestHandling:
+class TestServerHeaderHandling:
     @pytest.mark.asyncio
     async def test_should_handle_valid_request(self):
         http_server = HTTPServer()
@@ -62,6 +62,7 @@ class TestServerRequestHandling:
         with assert_raises(InvalidDecoding):
             http_server.handle_request(fake_connection)
 
+class TestServerBodyHandling:
     @pytest.mark.parametrize(
         "byte_request",
         [
