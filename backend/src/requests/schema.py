@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class RequestMethod(str, Enum):
+class HTTPRequestMethod(str, Enum):
     DELETE = "DELETE"
     GET = "GET"
     PATCH = "PATCH"
@@ -9,6 +9,6 @@ class RequestMethod(str, Enum):
     PUT = "PUT"
 
 
-class RequestProtocol(str, Enum):
+class HTTPRequestProtocol(str, Enum):
     HTTP_1_0 = "HTTP/1.0"
     HTTP_1_1 = "HTTP/1.1"

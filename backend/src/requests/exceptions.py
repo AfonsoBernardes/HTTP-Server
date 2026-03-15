@@ -1,5 +1,5 @@
 from displayable_exceptions.displayable_exception import DisplayableException
-from requests.schema import RequestMethod, RequestProtocol
+from requests.schema import HTTPRequestMethod, HTTPRequestProtocol
 
 
 class InvalidRequest(DisplayableException):
@@ -13,14 +13,14 @@ class InvalidDecoding(DisplayableException):
 
 
 class InvalidHTTPMethod(DisplayableException):
-    EXPECTED_METHODS = [method.value for method in RequestMethod]
+    EXPECTED_METHODS = [method.value for method in HTTPRequestMethod]
 
     def __init__(self, method: str):
         super().__init__(f"invalid HTTP method: expected [{", ".join(self.EXPECTED_METHODS)}], got {method!r}")
 
 
 class InvalidHTTPProtocol(DisplayableException):
-    EXPECTED_PROTOCOLS = [protocol.value for protocol in RequestProtocol]
+    EXPECTED_PROTOCOLS = [protocol.value for protocol in HTTPRequestProtocol]
 
     def __init__(self, protocol: str):
         super().__init__(f"invalid HTTP protocol: expected [{", ".join(self.EXPECTED_PROTOCOLS)}], got {protocol!r}")
@@ -31,3 +31,8 @@ class InvalidHTTPHeaders(DisplayableException):
         super().__init__(
             f"invalid HTTP headers: make sure headers are key-value pairs, separated by ': ' and a line breaker"
         )
+
+
+class InvalidBodyLength(DisplayableException):
+    def __init__(self, body_length: int, expected_length: int):
+        super().__init__(f"expected body with length {expected_length}, got {body_length} bytes")
