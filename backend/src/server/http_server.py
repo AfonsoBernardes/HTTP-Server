@@ -2,11 +2,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from socket import socket
 
-from requests.exceptions import (
-    InvalidBodyLength,
-    InvalidDecoding,
-    InvalidRequest,
-)
+from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
 from requests.http_request import HTTPRequest
 from server.tcp_server import TCPServer
 
