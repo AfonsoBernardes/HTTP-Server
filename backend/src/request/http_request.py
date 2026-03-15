@@ -1,11 +1,11 @@
 from typing import Dict, Optional
 
-from requests.exceptions import (
+from request.exceptions import (
     InvalidHTTPHeaders,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
 )
-from requests.schema import HTTPRequestMethod, HTTPRequestProtocol
+from request.schema import HTTPRequestMethod, HTTPRequestProtocol
 
 
 class HTTPRequest:

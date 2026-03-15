@@ -1,9 +1,9 @@
 import pytest
 from asserts import assert_equal, assert_raises
 
-from requests.exceptions import InvalidHTTPMethod, InvalidHTTPProtocol, InvalidHTTPHeaders
-from requests.http_request import HTTPRequest
-from requests.schema import HTTPRequestMethod, HTTPRequestProtocol
+from request.exceptions import InvalidHTTPMethod, InvalidHTTPProtocol, InvalidHTTPHeaders
+from request.http_request import HTTPRequest
+from request.schema import HTTPRequestMethod, HTTPRequestProtocol
 
 
 class TestRequestMethod:

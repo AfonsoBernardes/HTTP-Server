@@ -1,5 +1,5 @@
 from displayable_exceptions.displayable_exception import DisplayableException
-from requests.schema import HTTPRequestMethod, HTTPRequestProtocol
+from request.schema import HTTPRequestMethod, HTTPRequestProtocol
 
 
 class InvalidHTTPMethod(DisplayableException):
