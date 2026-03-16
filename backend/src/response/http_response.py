@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 from response.schema import HTTPResponseStatus
@@ -10,15 +11,35 @@ class HTTPResponse:
     headers: Dict[str, str]
     body: Optional[str]
 
-    def __init__(self):
+    def __init__(self, http_protocol: HTTPProtocol) -> None:
+        self.protocol = http_protocol
         self.headers = {
             "Server": "Afonso's Server",
             "Content-Type": "text/html",
         }
 
-    def get_status_line(self, status_code: int) -> str:
-        if status_code not in self.STATUS_CODES:
-            raise Exception(f"invalid status code: '{status_code}'")
+    def set_status_code(self, status_code: HTTPResponseStatus):
+        self.status_code = status_code
 
-        status_line = f"HTTP/1.1 {status_code} {self.STATUS_CODES[status_code]}\r\n"
+    def get_status_line(self) -> str:
+        status_line = f"{self.protocol} {self.status_code}\r\n"
         return status_line
+
+    def set_headers(self, extra_headers: Optional[Dict[str, str]] = None):
+        self.headers["Date"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        self.headers["Content-Length"] = str(len(self.body))
+
+        if extra_headers:
+            self.headers.update(extra_headers)
+
+    def get_headers(self) -> str:
+        response_headers = "".join(
+            f"{header_name}: {header_value}\r\n" for header_name, header_value in self.headers.items()
+        )
+        return response_headers
+
+    def set_body(self, body: str):
+        self.body = body
+
+    def get_body(self) -> str:
+        return self.body
