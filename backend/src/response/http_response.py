@@ -15,9 +15,10 @@ class HTTPResponse:
         self.protocol = http_protocol
         self.headers = {
             "Server": "Afonso's Server",
-            "Content-Type": "text/html",
+            "Content-Type": "application/json", #TODO: Which type should I return? JSON and dela with any frontend elsewhere?
         }
 
+    # TODO: too many setters/ getters?
     def set_status_code(self, status_code: HTTPResponseStatus):
         self.status_code = status_code
 

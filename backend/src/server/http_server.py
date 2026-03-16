@@ -41,6 +41,7 @@ class HTTPServer(TCPServer):
                 break
             body += chunk_data
 
+        # TODO: What should happen if len(body) > content_length? Truncate?
         if len(body) != content_length:
             raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
 
@@ -55,7 +56,7 @@ class HTTPServer(TCPServer):
         if request.method != "GET":
             return response.set_status_code(HTTPResponseStatus.HTTP_501_NOT_IMPLEMENTED)
 
-        # how can I efficiently route a request based on the method? would a decorator help here?
+        #TODO: how can I efficiently route a request based on the method? would a decorator help here?
         response.set_status_code(status_code=HTTPResponseStatus.HTTP_200_OK)
 
         get_request_template = self.TEMPLATES_PATH / "get_request.html"
@@ -67,5 +68,5 @@ class HTTPServer(TCPServer):
         response_headers = response.get_headers()
         response_string = f"{status_line}\r\n{response_headers}\r\n\r\n{response.body}"
 
-        # I feel like this should return an HTTPResponse, however, socket.send requires a string
+        #TODO: I feel like this should return an HTTPResponse, however, socket.send requires a string
         return response_string
