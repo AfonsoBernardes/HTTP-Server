@@ -22,5 +22,3 @@ class InvalidHTTPHeaders(DisplayableException):
         super().__init__(
             f"invalid HTTP headers: make sure headers are key-value pairs, separated by ': ' and a line breaker"
         )
-
-

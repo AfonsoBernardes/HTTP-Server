@@ -15,7 +15,7 @@ class HTTPResponse:
         self.protocol = http_protocol
         self.headers = {
             "Server": "Afonso's Server",
-            "Content-Type": "application/json", #TODO: Which type should I return? JSON and dela with any frontend elsewhere?
+            "Content-Type": "application/json",  # TODO: Which type should I return? JSON and dela with any frontend elsewhere?
         }
 
     # TODO: too many setters/ getters?

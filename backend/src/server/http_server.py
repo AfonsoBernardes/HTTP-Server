@@ -1,10 +1,10 @@
 from pathlib import Path
 from socket import socket
 
+from request.http_request import HTTPRequest
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatus
-from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
-from request.http_request import HTTPRequest
+from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
 
@@ -56,7 +56,7 @@ class HTTPServer(TCPServer):
         if request.method != "GET":
             return response.set_status_code(HTTPResponseStatus.HTTP_501_NOT_IMPLEMENTED)
 
-        #TODO: how can I efficiently route a request based on the method? would a decorator help here?
+        # TODO: how can I efficiently route a request based on the method? would a decorator help here?
         response.set_status_code(status_code=HTTPResponseStatus.HTTP_200_OK)
 
         get_request_template = self.TEMPLATES_PATH / "get_request.html"
@@ -68,5 +68,5 @@ class HTTPServer(TCPServer):
         response_headers = response.get_headers()
         response_string = f"{status_line}\r\n{response_headers}\r\n\r\n{response.body}"
 
-        #TODO: I feel like this should return an HTTPResponse, however, socket.send requires a string
+        # TODO: I feel like this should return an HTTPResponse, however, socket.send requires a string
         return response_string
