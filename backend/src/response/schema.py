@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class HTTPResponseStatus(str, Enum):
-
+    # TODO: Remove message from here and map it in a different function
     # --- Informational responses (100–199) ---
     HTTP_100_CONTINUE = "100 Continue"
     HTTP_101_SWITCHING_PROTOCOLS = "101 Switching Protocols"

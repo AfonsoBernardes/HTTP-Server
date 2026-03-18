@@ -7,3 +7,4 @@ class HTTPRequestMethod(str, Enum):
     PATCH = "PATCH"
     POST = "POST"
     PUT = "PUT"
+    HEAD = "HEAD"

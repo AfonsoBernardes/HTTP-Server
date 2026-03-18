@@ -30,8 +30,8 @@ class HTTPServer(TCPServer):
         except ValueError:
             raise InvalidRequest()
 
-        request = HTTPRequest()
-        request.parse_headers(headers)
+        method, url, headers, = parse_headers(headers)
+        request = HTTPRequest(method, url, headers)
 
         # since data might arrive in chunks, parsing the body requires us to know how long it is
         content_length = int(request.headers.get("Content-Length", 0))
@@ -42,6 +42,7 @@ class HTTPServer(TCPServer):
             body += chunk_data
 
         # TODO: What should happen if len(body) > content_length? Truncate?
+        # Client will not always know content-length, no more data = end of request
         if len(body) != content_length:
             raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
 
@@ -57,6 +58,7 @@ class HTTPServer(TCPServer):
             return response.set_status_code(HTTPResponseStatus.HTTP_501_NOT_IMPLEMENTED)
 
         # TODO: how can I efficiently route a request based on the method? would a decorator help here?
+        # let the server know about a routing table. Which routes matches the URL the request uses.
         response.set_status_code(status_code=HTTPResponseStatus.HTTP_200_OK)
 
         get_request_template = self.TEMPLATES_PATH / "get_request.html"

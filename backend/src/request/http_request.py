@@ -11,15 +11,16 @@ from server.schema import HTTPProtocol
 
 class HTTPRequest:
     method: HTTPRequestMethod
-    target: str
+    url: str
     protocol: HTTPProtocol
     headers: Dict[str, str]
     body: Optional[str]
 
-    def __init__(self):
+    def __init__(self, method, url, headers):
         self.headers: Dict[str, str] = {}
         self.body = None
 
+    # free function return headers, url, body and methods, verify protocol
     def parse_headers(self, request_headers: str):
         request_headers = request_headers.splitlines()
 
@@ -39,12 +40,13 @@ class HTTPRequest:
         except ValueError:
             raise InvalidHTTPMethod(request_line[0])
 
-        self.target = request_line[1]
+        self.url = request_line[1]
 
         try:
             self.protocol = HTTPProtocol(request_line[2])
         except ValueError:
             raise InvalidHTTPProtocol(request_line[2])
 
+    # think about writing body to a file and process from there
     def parse_body(self, request_body: str):
         self.body = request_body if request_body else None

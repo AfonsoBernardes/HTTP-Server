@@ -35,6 +35,8 @@ class TCPServer(ABC):
             logger.info(f"Client {client_address} connected")
 
             response = self.handle_request(client_connection)
+            # Ln 40 should be in handle_request.
+            # The end of a request should be dictated by the user, then he'll close the connection.
             client_connection.send(response.encode("utf-8"))  # encode as bytes
 
             logger.info(f"Closing client {client_address} connection")
@@ -44,9 +46,12 @@ class TCPServer(ABC):
     def handle_request(self, client_connection: socket) -> str:
         pass
 
+    def close(self):
+        logger.info(f"Stopping server on {self.host}:{self.port}")
+        self.server_socket.close()
+
     def __enter__(self):
         self.run_server()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        logger.info(f"Stopping server on {self.host}:{self.port}")
-        self.server_socket.close()
+        self.close()

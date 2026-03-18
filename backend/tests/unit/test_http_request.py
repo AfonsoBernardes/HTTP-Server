@@ -24,7 +24,7 @@ class TestRequestMethod:
         request.parse_headers(data)
 
         assert_equal(request.method, HTTPRequestMethod(request_method))
-        assert_equal(request.target, "/")
+        assert_equal(request.url, "/")
         assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, {})
         assert_equal(request.body, None)
@@ -65,7 +65,7 @@ class TestRequestProtocol:
         request.parse_headers(data)
 
         assert_equal(request.method, "GET")
-        assert_equal(request.target, "/")
+        assert_equal(request.url, "/")
         assert_equal(request.protocol, HTTPProtocol(request_protocol))
         assert_equal(request.headers, {})
         assert_equal(request.body, None)
@@ -105,7 +105,7 @@ class TestRequestHeadersParsing:
         request.parse_headers(data)
 
         assert_equal(request.method, HTTPRequestMethod.GET)
-        assert_equal(request.target, "/")
+        assert_equal(request.url, "/")
         assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, expected_headers)
 

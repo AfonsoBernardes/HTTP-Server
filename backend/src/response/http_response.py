@@ -7,10 +7,11 @@ from server.schema import HTTPProtocol
 
 class HTTPResponse:
     protocol: HTTPProtocol
-    status_code: HTTPResponseStatus
+    status_code: HTTPResponseStatus # no need to set the sattus code, just for the status_line
     headers: Dict[str, str]
     body: Optional[str]
 
+    # Response should knwo about the socket, optimization for files and support strema repsonses
     def __init__(self, http_protocol: HTTPProtocol) -> None:
         self.protocol = http_protocol
         self.headers = {
@@ -22,16 +23,17 @@ class HTTPResponse:
     def set_status_code(self, status_code: HTTPResponseStatus):
         self.status_code = status_code
 
-    def get_status_line(self) -> str:
+    def send_status_line(self) -> str:
         status_line = f"{self.protocol} {self.status_code}\r\n"
         return status_line
 
     def set_headers(self, extra_headers: Optional[Dict[str, str]] = None):
         self.headers["Date"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-        self.headers["Content-Length"] = str(len(self.body))
+        # self.headers["Content-Length"] = str(len(self.body)) - we might not always know the content length, in streaming for example
 
         if extra_headers:
             self.headers.update(extra_headers)
+    # should be able to send headers to the client before sending the full body
 
     def get_headers(self) -> str:
         response_headers = "".join(
