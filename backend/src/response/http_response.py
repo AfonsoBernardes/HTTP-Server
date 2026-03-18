@@ -15,7 +15,7 @@ class HTTPResponse:
         self.protocol = http_protocol
         self.headers = {
             "Server": "Afonso's Server",
-            "Content-Type": "application/json",  # TODO: Which type should I return? JSON and dela with any frontend elsewhere?
+            "Content-Type": "application/json",  # TODO: Which type should I return? Should this be determined when creating the body? Should this be restricted?
         }
 
     # TODO: too many setters/ getters?
@@ -39,6 +39,7 @@ class HTTPResponse:
         )
         return response_headers
 
+    # TODO: should body accept Any and evaluate "Content-Type" from there?
     def set_body(self, body: str):
         self.body = body
 
