@@ -12,8 +12,7 @@ class HTTPServer(TCPServer):
     TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
 
     def handle_request(self, client_connection: socket) -> HTTPResponse:
-        # since data might arrive in chunks, loop until no more data = end of request
-        # loop makes sure all headers are present in the request
+        # data might arrive in chunks loop makes sure all headers are present in the request
         raw_data = b""
         while b"\r\n\r\n" not in raw_data:
             # receive data from the socket. The return value is a bytes object representing the data received.
@@ -34,17 +33,24 @@ class HTTPServer(TCPServer):
         method, url, protocol, headers = parse_headers(request_headers=headers)
         request = HTTPRequest(method, url, protocol, headers)
 
-        # since data might arrive in chunks, parsing the body requires us to know how long it is
-        content_length = int(request.headers.get("Content-Length", 0))
-        while len(body) < content_length:
-            chunk_data = client_connection.recv(1024)
-            if not chunk_data:
-                break
-            body += chunk_data
+        # since data might arrive in chunks, parsing the body requires us to either:
+        # 1. receive a zero-length chunk Transfer-Encoding: Chunked
+        # 2. know how long it is via Content-Length
+        # 3. if none is present, Bad Request
+        if "Transfer-Encoding" in headers:
+            transfer_encoding = headers["Transfer-Encoding"]
+        else:
+            content_length = int(request.headers.get("Content-Length", 0))
+            while len(body) < content_length:
+                chunk_data = client_connection.recv(1024)
+                if not chunk_data:
+                    break
+                body += chunk_data
 
-        # TODO: What should happen if len(body) > content_length? Truncate?
-        if len(body) != content_length:
-            raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+            if len(body) < content_length:
+                raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+            else:
+                body = body[:content_length] if content_length > 0 else b""
 
         try:
             body = body.decode(encoding="UTF-8", errors="strict") if body else None
