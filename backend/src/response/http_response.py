@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
-from response.schema import HTTPResponseStatus
+from response.schema import HTTPResponseStatusCode
 from server.schema import HTTPProtocol
 
 
 class HTTPResponse:
     protocol: HTTPProtocol
-    status_code: HTTPResponseStatus # no need to set the sattus code, just for the status_line
+    status_code: HTTPResponseStatusCode # no need to set the sattus code, just for the status_line
     headers: Dict[str, str]
     body: Optional[str]
 
@@ -20,7 +20,7 @@ class HTTPResponse:
         }
 
     # TODO: too many setters/ getters?
-    def set_status_code(self, status_code: HTTPResponseStatus):
+    def set_status_code(self, status_code: HTTPResponseStatusCode):
         self.status_code = status_code
 
     def send_status_line(self) -> str:

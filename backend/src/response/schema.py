@@ -1,76 +1,158 @@
-from enum import Enum
+from enum import IntEnum
+
+from response.exceptions import InvalidHTTPStatusCode
 
 
-class HTTPResponseStatus(str, Enum):
+HTTP_STATUS_MESSAGES = {
+    100: "Continue",
+    101: "Switching Protocols",
+    102: "Processing",
+    103: "Early Hints",
+
+    200: "OK",
+    201: "Created",
+    202: "Accepted",
+    203: "Non-Authoritative Information",
+    204: "No Content",
+    205: "Reset Content",
+    206: "Partial Content",
+    207: "Multi-Status",
+    208: "Already Reported",
+    226: "IM Used",
+
+    300: "Multiple Choices",
+    301: "Moved Permanently",
+    302: "Found",
+    303: "See Other",
+    304: "Not Modified",
+    305: "Use Proxy",
+    307: "Temporary Redirect",
+    308: "Permanent Redirect",
+
+    400: "Bad Request",
+    401: "Unauthorized",
+    402: "Payment Required",
+    403: "Forbidden",
+    404: "Not Found",
+    405: "Method Not Allowed",
+    406: "Not Acceptable",
+    407: "Proxy Authentication Required",
+    408: "Request Timeout",
+    409: "Conflict",
+    410: "Gone",
+    411: "Length Required",
+    412: "Precondition Failed",
+    413: "Payload Too Large",
+    414: "URI Too Long",
+    415: "Unsupported Media Type",
+    416: "Range Not Satisfiable",
+    417: "Expectation Failed",
+    418: "I'm a teapot",
+    421: "Misdirected Request",
+    422: "Unprocessable Entity",
+    423: "Locked",
+    424: "Failed Dependency",
+    425: "Too Early",
+    426: "Upgrade Required",
+    428: "Precondition Required",
+    429: "Too Many Requests",
+    431: "Request Header Fields Too Large",
+    451: "Unavailable For Legal Reasons",
+
+    500: "Internal Server Error",
+    501: "Not Implemented",
+    502: "Bad Gateway",
+    503: "Service Unavailable",
+    504: "Gateway Timeout",
+    505: "HTTP Version Not Supported",
+    506: "Variant Also Negotiates",
+    507: "Insufficient Storage",
+    508: "Loop Detected",
+    510: "Not Extended",
+    511: "Network Authentication Required",
+}
+
+class HTTPResponseStatusCode(str, IntEnum):
     # TODO: Remove message from here and map it in a different function
     # --- Informational responses (100–199) ---
-    HTTP_100_CONTINUE = "100 Continue"
-    HTTP_101_SWITCHING_PROTOCOLS = "101 Switching Protocols"
-    HTTP_102_PROCESSING = "102 Processing"
-    HTTP_103_EARLY_HINTS = "103 Early Hints"
+    HTTP_100 = 100
+    HTTP_101 = 101
+    HTTP_102 = 102
+    HTTP_103 = 103
 
     # --- Successful responses (200–299) ---
-    HTTP_200_OK = "200 OK"
-    HTTP_201_CREATED = "201 Created"
-    HTTP_202_ACCEPTED = "202 Accepted"
-    HTTP_203_NON_AUTHORITATIVE_INFORMATION = "203 Non-Authoritative Information"
-    HTTP_204_NO_CONTENT = "204 No Content"
-    HTTP_205_RESET_CONTENT = "205 Reset Content"
-    HTTP_206_PARTIAL_CONTENT = "206 Partial Content"
-    HTTP_207_MULTI_STATUS = "207 Multi-Status"
-    HTTP_208_ALREADY_REPORTED = "208 Already Reported"
-    HTTP_226_IM_USED = "226 IM Used"
+    HTTP_200 = 200
+    HTTP_201 = 201
+    HTTP_202 = 202
+    HTTP_203 = 203
+    HTTP_204 = 204
+    HTTP_205 = 205
+    HTTP_206 = 206
+    HTTP_207 = 207
+    HTTP_208 = 208
+    HTTP_226 = 226
 
     # --- Redirection messages (300–399) ---
-    HTTP_300_MULTIPLE_CHOICES = "300 Multiple Choices"
-    HTTP_301_MOVED_PERMANENTLY = "301 Moved Permanently"
-    HTTP_302_FOUND = "302 Found"
-    HTTP_303_SEE_OTHER = "303 See Other"
-    HTTP_304_NOT_MODIFIED = "304 Not Modified"
-    HTTP_305_USE_PROXY = "305 Use Proxy"
-    HTTP_307_TEMPORARY_REDIRECT = "307 Temporary Redirect"
-    HTTP_308_PERMANENT_REDIRECT = "308 Permanent Redirect"
+    HTTP_300 = 300
+    HTTP_301 = 301
+    HTTP_302 = 302
+    HTTP_303 = 303
+    HTTP_304 = 304
+    HTTP_305 = 305
+    HTTP_307 = 307
+    HTTP_308 = 308
 
     # --- Client error responses (400–499) ---
-    HTTP_400_BAD_REQUEST = "400 Bad Request"
-    HTTP_401_UNAUTHORIZED = "401 Unauthorized"
-    HTTP_402_PAYMENT_REQUIRED = "402 Payment Required"
-    HTTP_403_FORBIDDEN = "403 Forbidden"
-    HTTP_404_NOT_FOUND = "404 Not Found"
-    HTTP_405_METHOD_NOT_ALLOWED = "405 Method Not Allowed"
-    HTTP_406_NOT_ACCEPTABLE = "406 Not Acceptable"
-    HTTP_407_PROXY_AUTHENTICATION_REQUIRED = "407 Proxy Authentication Required"
-    HTTP_408_REQUEST_TIMEOUT = "408 Request Timeout"
-    HTTP_409_CONFLICT = "409 Conflict"
-    HTTP_410_GONE = "410 Gone"
-    HTTP_411_LENGTH_REQUIRED = "411 Length Required"
-    HTTP_412_PRECONDITION_FAILED = "412 Precondition Failed"
-    HTTP_413_PAYLOAD_TOO_LARGE = "413 Payload Too Large"
-    HTTP_414_URI_TOO_LONG = "414 URI Too Long"
-    HTTP_415_UNSUPPORTED_MEDIA_TYPE = "415 Unsupported Media Type"
-    HTTP_416_RANGE_NOT_SATISFIABLE = "416 Range Not Satisfiable"
-    HTTP_417_EXPECTATION_FAILED = "417 Expectation Failed"
-    HTTP_418_IM_A_TEAPOT = "418 I'm a teapot"
-    HTTP_421_MISDIRECTED_REQUEST = "421 Misdirected Request"
-    HTTP_422_UNPROCESSABLE_ENTITY = "422 Unprocessable Entity"
-    HTTP_423_LOCKED = "423 Locked"
-    HTTP_424_FAILED_DEPENDENCY = "424 Failed Dependency"
-    HTTP_425_TOO_EARLY = "425 Too Early"
-    HTTP_426_UPGRADE_REQUIRED = "426 Upgrade Required"
-    HTTP_428_PRECONDITION_REQUIRED = "428 Precondition Required"
-    HTTP_429_TOO_MANY_REQUESTS = "429 Too Many Requests"
-    HTTP_431_REQUEST_HEADER_FIELDS_TOO_LARGE = "431 Request Header Fields Too Large"
-    HTTP_451_UNAVAILABLE_FOR_LEGAL_REASONS = "451 Unavailable For Legal Reasons"
+    HTTP_400 = 400
+    HTTP_401 = 401
+    HTTP_402 = 402
+    HTTP_403 = 403
+    HTTP_404 = 404
+    HTTP_405 = 405
+    HTTP_406 = 406
+    HTTP_407 = 407
+    HTTP_408 = 408
+    HTTP_409 = 409
+    HTTP_410 = 410
+    HTTP_411 = 411
+    HTTP_412 = 412
+    HTTP_413 = 413
+    HTTP_414 = 414
+    HTTP_415 = 415
+    HTTP_416 = 416
+    HTTP_417 = 417
+    HTTP_418 = 418
+    HTTP_421 = 421
+    HTTP_422 = 422
+    HTTP_423 = 423
+    HTTP_424 = 424
+    HTTP_425 = 425
+    HTTP_426 = 426
+    HTTP_428 = 428
+    HTTP_429 = 429
+    HTTP_431 = 431
+    HTTP_451 = 451
 
     # --- Server error responses (500–599) ---
-    HTTP_500_INTERNAL_SERVER_ERROR = "500 Internal Server Error"
-    HTTP_501_NOT_IMPLEMENTED = "501 Not Implemented"
-    HTTP_502_BAD_GATEWAY = "502 Bad Gateway"
-    HTTP_503_SERVICE_UNAVAILABLE = "503 Service Unavailable"
-    HTTP_504_GATEWAY_TIMEOUT = "504 Gateway Timeout"
-    HTTP_505_HTTP_VERSION_NOT_SUPPORTED = "505 HTTP Version Not Supported"
-    HTTP_506_VARIANT_ALSO_NEGOTIATES = "506 Variant Also Negotiates"
-    HTTP_507_INSUFFICIENT_STORAGE = "507 Insufficient Storage"
-    HTTP_508_LOOP_DETECTED = "508 Loop Detected"
-    HTTP_510_NOT_EXTENDED = "510 Not Extended"
-    HTTP_511_NETWORK_AUTHENTICATION_REQUIRED = "511 Network Authentication Required"
+    HTTP_500 = 500
+    HTTP_501 = 501
+    HTTP_502 = 502
+    HTTP_503 = 503
+    HTTP_504 = 504
+    HTTP_505 = 505
+    HTTP_506 = 506
+    HTTP_507 = 507
+    HTTP_508 = 508
+    HTTP_510 = 510
+    HTTP_511 = 511
+
+    @property
+    def status_message(self):
+        try:
+            status_message = HTTP_STATUS_MESSAGES[self.value]
+        except KeyError:
+            raise InvalidHTTPStatusCode(self.value)
+        return status_message
+
+    def __str__(self):
+        return f"{self.value} {self.status_message}"

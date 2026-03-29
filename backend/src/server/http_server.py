@@ -3,7 +3,7 @@ from socket import socket
 
 from request.http_request import HTTPRequest
 from response.http_response import HTTPResponse
-from response.schema import HTTPResponseStatus
+from response.schema import HTTPResponseStatusCode
 from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
@@ -55,11 +55,11 @@ class HTTPServer(TCPServer):
 
         response = HTTPResponse(http_protocol=request.protocol)
         if request.method != "GET":
-            return response.set_status_code(HTTPResponseStatus.HTTP_501_NOT_IMPLEMENTED)
+            return response.set_status_code(HTTPResponseStatusCode.HTTP_501_NOT_IMPLEMENTED)
 
         # TODO: how can I efficiently route a request based on the method? would a decorator help here?
         # let the server know about a routing table. Which routes matches the URL the request uses.
-        response.set_status_code(status_code=HTTPResponseStatus.HTTP_200_OK)
+        response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200_OK)
 
         get_request_template = self.TEMPLATES_PATH / "get_request.html"
         with get_request_template.open(mode="r", encoding="utf-8") as template:
