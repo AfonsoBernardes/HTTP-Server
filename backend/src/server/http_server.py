@@ -40,7 +40,7 @@ class HTTPServer(TCPServer):
         else:
             request.parse_body(body)
 
-        response = HTTPResponse(http_protocol=request.protocol)
+        response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
         if request.method != "GET":
             return response.set_status_code(HTTPResponseStatusCode.HTTP_501)
 
@@ -51,13 +51,5 @@ class HTTPServer(TCPServer):
         get_request_template = self.TEMPLATES_PATH / "get_request.html"
         with get_request_template.open(mode="r", encoding="utf-8") as template:
             response.set_body(template.read().format(server_name=response.headers["Server"]))
-
-        status_line = response.get_status_line()
-        response.set_headers()
-        response_headers = response.get_headers()
-        response_string = f"{status_line}\r\n{response_headers}\r\n\r\n{response.body}"
-
-        # The end of a request should be dictated by the user, then he'll close the connection.
-        client_connection.send(response_string.encode("utf-8"))  # encode as bytes
 
         return response
