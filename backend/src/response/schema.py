@@ -68,8 +68,7 @@ HTTP_STATUS_MESSAGES = {
 }
 
 
-class HTTPResponseStatusCode(str, IntEnum):
-    # TODO: Remove message from here and map it in a different function
+class HTTPResponseStatusCode(IntEnum):
     # --- Informational responses (100–199) ---
     HTTP_100 = 100
     HTTP_101 = 101
