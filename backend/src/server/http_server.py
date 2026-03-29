@@ -4,7 +4,7 @@ from socket import socket
 from request.http_request import HTTPRequest, parse_headers
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
-from server.exceptions import InvalidDecoding, InvalidRequest
+from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
 
@@ -13,8 +13,9 @@ class HTTPServer(TCPServer):
 
     def handle_request(self, client_connection: socket) -> HTTPResponse:
         # since data might arrive in chunks, loop until no more data = end of request
+        # loop makes sure all headers are present in the request
         raw_data = b""
-        while True:
+        while b"\r\n\r\n" not in raw_data:
             # receive data from the socket. The return value is a bytes object representing the data received.
             # maximum amount of data to be received at once is specified by bufsize.
             chunk_data = client_connection.recv(1024)
@@ -33,6 +34,18 @@ class HTTPServer(TCPServer):
         method, url, protocol, headers = parse_headers(request_headers=headers)
         request = HTTPRequest(method, url, protocol, headers)
 
+        # since data might arrive in chunks, parsing the body requires us to know how long it is
+        content_length = int(request.headers.get("Content-Length", 0))
+        while len(body) < content_length:
+            chunk_data = client_connection.recv(1024)
+            if not chunk_data:
+                break
+            body += chunk_data
+
+        # TODO: What should happen if len(body) > content_length? Truncate?
+        if len(body) != content_length:
+            raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+
         try:
             body = body.decode(encoding="UTF-8", errors="strict") if body else None
         except UnicodeDecodeError:
@@ -47,9 +60,12 @@ class HTTPServer(TCPServer):
         # TODO: how can I efficiently route a request based on the method? would a decorator help here?
         # let the server know about a routing table. Which routes matches the URL the request uses.
         response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
+        response.send_headers()
 
         get_request_template = self.TEMPLATES_PATH / "get_request.html"
         with get_request_template.open(mode="r", encoding="utf-8") as template:
             response.set_body(template.read().format(server_name=response.headers["Server"]))
+
+        response.send_body()
 
         return response

@@ -1,7 +1,7 @@
 import pytest
 from asserts import assert_raises
 
-from server.exceptions import InvalidDecoding, InvalidRequest
+from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
 from server.http_server import HTTPServer
 
 class FakeSocket:
@@ -78,6 +78,23 @@ class TestServerBodyHandling:
         ])
 
         assert http_server.handle_request(fake_connection)
+
+    @pytest.mark.parametrize(
+        "invalid_body",
+        [
+            b"GET / HTTP/1.1\r\nContent-Length: 0\r\n\r\nGreater than zero",
+            b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nShorter than twenty",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_body(self, invalid_body: bytes):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            invalid_body,
+        ])
+
+        with assert_raises(InvalidBodyLength):
+            http_server.handle_request(fake_connection)
 
     @pytest.mark.parametrize(
         "invalid_body_encoding",

@@ -34,7 +34,7 @@ class HTTPResponse:
 
     # should be able to send header section to the client before the full body
     def send_headers(self):
-        status_line = f"{self.protocol} {self.status_code}"
+        status_line = f"{self.protocol.value} {self.status_code}"
         response_headers = self.get_headers()
 
         header_section = f"{status_line}\r\n{response_headers}\r\n\r\n"
