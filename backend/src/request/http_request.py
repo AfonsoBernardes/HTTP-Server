@@ -12,6 +12,7 @@ from server.schema import HTTPProtocol
 def parse_headers(request_headers: str) -> Tuple[
     HTTPRequestMethod,
     str,
+    HTTPProtocol,
     Dict[str, str],
 ]:
     request_headers = request_headers.splitlines()
@@ -35,25 +36,25 @@ def parse_headers(request_headers: str) -> Tuple[
 
     url = request_line[1]
 
-    # validate protocol
-    protocol = request_line[2]
     try:
-        HTTPProtocol(protocol)
+        protocol = HTTPProtocol(request_line[2])
     except ValueError:
         raise InvalidHTTPProtocol(request_line[2])
 
-    return method, url, headers
+    return method, url, protocol, headers
 
 
 class HTTPRequest:
     method: HTTPRequestMethod
     url: str
+    protocol: HTTPProtocol
     headers: Dict[str, str]
     body: Optional[str]
 
-    def __init__(self, method, url, headers):
+    def __init__(self, method, url, protocol, headers):
         self.method = method
         self.url = url
+        self.protocol = protocol
         self.headers = headers
         self.body = None
 
