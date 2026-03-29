@@ -1,7 +1,7 @@
 from pathlib import Path
 from socket import socket
 
-from request.http_request import HTTPRequest
+from request.http_request import HTTPRequest, parse_headers
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
 from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
@@ -11,7 +11,7 @@ from server.tcp_server import TCPServer
 class HTTPServer(TCPServer):
     TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
 
-    def handle_request(self, client_connection: socket) -> str:
+    def handle_request(self, client_connection: socket) -> HTTPResponse:
         # loop makes sure all headers are present in the request
         raw_data = b""
         while b"\r\n\r\n" not in raw_data:
@@ -30,11 +30,7 @@ class HTTPServer(TCPServer):
         except ValueError:
             raise InvalidRequest()
 
-        (
-            method,
-            url,
-            headers,
-        ) = parse_headers(headers)
+        method, url, headers = parse_headers(request_headers=headers)
         request = HTTPRequest(method, url, headers)
 
         # since data might arrive in chunks, parsing the body requires us to know how long it is
@@ -59,11 +55,11 @@ class HTTPServer(TCPServer):
 
         response = HTTPResponse(http_protocol=request.protocol)
         if request.method != "GET":
-            return response.set_status_code(HTTPResponseStatusCode.HTTP_501_NOT_IMPLEMENTED)
+            return response.set_status_code(HTTPResponseStatusCode.HTTP_501)
 
         # TODO: how can I efficiently route a request based on the method? would a decorator help here?
         # let the server know about a routing table. Which routes matches the URL the request uses.
-        response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200_OK)
+        response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
 
         get_request_template = self.TEMPLATES_PATH / "get_request.html"
         with get_request_template.open(mode="r", encoding="utf-8") as template:
@@ -74,5 +70,7 @@ class HTTPServer(TCPServer):
         response_headers = response.get_headers()
         response_string = f"{status_line}\r\n{response_headers}\r\n\r\n{response.body}"
 
-        # TODO: I feel like this should return an HTTPResponse, however, socket.send requires a string
-        return response_string
+        # The end of a request should be dictated by the user, then he'll close the connection.
+        client_connection.send(response_string.encode("utf-8"))  # encode as bytes
+
+        return response
