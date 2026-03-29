@@ -11,6 +11,9 @@ class FakeSocket:
     def recv(self, bufsize: int):
         return next(self._chunks, b"")
 
+    def send(self, data: bytes):
+        pass
+
 
 
 class TestServerHeaderHandling:
