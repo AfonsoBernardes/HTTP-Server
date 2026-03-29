@@ -2,13 +2,11 @@ from enum import IntEnum
 
 from response.exceptions import InvalidHTTPStatusCode
 
-
 HTTP_STATUS_MESSAGES = {
     100: "Continue",
     101: "Switching Protocols",
     102: "Processing",
     103: "Early Hints",
-
     200: "OK",
     201: "Created",
     202: "Accepted",
@@ -19,7 +17,6 @@ HTTP_STATUS_MESSAGES = {
     207: "Multi-Status",
     208: "Already Reported",
     226: "IM Used",
-
     300: "Multiple Choices",
     301: "Moved Permanently",
     302: "Found",
@@ -28,7 +25,6 @@ HTTP_STATUS_MESSAGES = {
     305: "Use Proxy",
     307: "Temporary Redirect",
     308: "Permanent Redirect",
-
     400: "Bad Request",
     401: "Unauthorized",
     402: "Payment Required",
@@ -58,7 +54,6 @@ HTTP_STATUS_MESSAGES = {
     429: "Too Many Requests",
     431: "Request Header Fields Too Large",
     451: "Unavailable For Legal Reasons",
-
     500: "Internal Server Error",
     501: "Not Implemented",
     502: "Bad Gateway",
@@ -71,6 +66,7 @@ HTTP_STATUS_MESSAGES = {
     510: "Not Extended",
     511: "Network Authentication Required",
 }
+
 
 class HTTPResponseStatusCode(str, IntEnum):
     # TODO: Remove message from here and map it in a different function

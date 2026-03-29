@@ -30,7 +30,11 @@ class HTTPServer(TCPServer):
         except ValueError:
             raise InvalidRequest()
 
-        method, url, headers, = parse_headers(headers)
+        (
+            method,
+            url,
+            headers,
+        ) = parse_headers(headers)
         request = HTTPRequest(method, url, headers)
 
         # since data might arrive in chunks, parsing the body requires us to know how long it is

@@ -7,7 +7,7 @@ from server.schema import HTTPProtocol
 
 class HTTPResponse:
     protocol: HTTPProtocol
-    status_code: HTTPResponseStatusCode # no need to set the sattus code, just for the status_line
+    status_code: HTTPResponseStatusCode  # no need to set the sattus code, just for the status_line
     headers: Dict[str, str]
     body: Optional[str]
 
@@ -33,6 +33,7 @@ class HTTPResponse:
 
         if extra_headers:
             self.headers.update(extra_headers)
+
     # TODO: Should be able to send headers to the client before sending the full body
 
     def get_headers(self) -> str:
