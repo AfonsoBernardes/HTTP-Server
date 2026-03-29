@@ -1,7 +1,7 @@
 import pytest
 from asserts import assert_raises
 
-from requests.exceptions import InvalidRequest, InvalidDecoding, InvalidBodyLength
+from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
 from server.http_server import HTTPServer
 
 class FakeSocket:
@@ -10,6 +10,9 @@ class FakeSocket:
 
     def recv(self, bufsize: int):
         return next(self._chunks, b"")
+
+    def send(self, data: bytes):
+        pass
 
 
 

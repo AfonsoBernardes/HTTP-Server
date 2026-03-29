@@ -34,9 +34,7 @@ class TCPServer(ABC):
             client_connection, client_address = self.server_socket.accept()
             logger.info(f"Client {client_address} connected")
 
-            response = self.handle_request(client_connection)
-            client_connection.send(response.encode("utf-8"))  # encode as bytes
-
+            self.handle_request(client_connection)
             logger.info(f"Closing client {client_address} connection")
             client_connection.close()
 
@@ -44,9 +42,12 @@ class TCPServer(ABC):
     def handle_request(self, client_connection: socket) -> str:
         pass
 
+    def close(self):
+        logger.info(f"Stopping server on {self.host}:{self.port}")
+        self.server_socket.close()
+
     def __enter__(self):
         self.run_server()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        logger.info(f"Stopping server on {self.host}:{self.port}")
-        self.server_socket.close()
+        self.close()

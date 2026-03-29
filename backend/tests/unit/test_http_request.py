@@ -1,9 +1,10 @@
 import pytest
 from asserts import assert_equal, assert_raises
 
-from requests.exceptions import InvalidHTTPMethod, InvalidHTTPProtocol, InvalidHTTPHeaders
-from requests.http_request import HTTPRequest
-from requests.schema import HTTPRequestMethod, HTTPRequestProtocol
+from request.exceptions import InvalidHTTPMethod, InvalidHTTPProtocol, InvalidHTTPHeaders
+from request.http_request import HTTPRequest, parse_headers
+from request.schema import HTTPRequestMethod
+from server.schema import HTTPProtocol
 
 
 class TestRequestMethod:
@@ -19,12 +20,12 @@ class TestRequestMethod:
     async def test_should_parse_request_with_valid_method(self, request_method: str):
         data = f"{request_method} / HTTP/1.1"
 
-        request = HTTPRequest()
-        request.parse_headers(data)
+        method, url, protocol, headers = parse_headers(data)
+        request = HTTPRequest(method, url, protocol, headers)
 
         assert_equal(request.method, HTTPRequestMethod(request_method))
-        assert_equal(request.target, "/")
-        assert_equal(request.protocol, HTTPRequestProtocol.HTTP_1_1)
+        assert_equal(request.url, "/")
+        assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, {})
         assert_equal(request.body, None)
 
@@ -41,31 +42,30 @@ class TestRequestMethod:
     async def test_should_fail_to_parse_request_with_invalid_method(self, invalid_request_method, error_message: str):
         data = f"{invalid_request_method} / HTTP/1.1"
 
-        request = HTTPRequest()
         with assert_raises(InvalidHTTPMethod, error_message):
-            request.parse_headers(data)
+            parse_headers(data)
 
 
 
 class TestRequestProtocol:
-    EXPECTED_PROTOCOL = ", ".join(protocol.value for protocol in HTTPRequestProtocol)
+    EXPECTED_PROTOCOL = ", ".join(protocol.value for protocol in HTTPProtocol)
 
     @pytest.mark.parametrize(
         "request_protocol",
         [
-            request_protocol.value for request_protocol in HTTPRequestProtocol
+            request_protocol.value for request_protocol in HTTPProtocol
         ],
     )
     @pytest.mark.asyncio
     async def test_should_parse_request_with_valid_protocol(self, request_protocol: str):
         data = f"GET / {request_protocol}"
 
-        request = HTTPRequest()
-        request.parse_headers(data)
+        method, url, protocol, headers = parse_headers(data)
+        request = HTTPRequest(method, url, protocol, headers)
 
         assert_equal(request.method, "GET")
-        assert_equal(request.target, "/")
-        assert_equal(request.protocol, HTTPRequestProtocol(request_protocol))
+        assert_equal(request.url, "/")
+        assert_equal(request.protocol, HTTPProtocol(request_protocol))
         assert_equal(request.headers, {})
         assert_equal(request.body, None)
 
@@ -82,9 +82,8 @@ class TestRequestProtocol:
     async def test_should_fail_to_parse_request_with_invalid_protocol(self, invalid_request_protocol, error_message: str):
         data = f"GET / {invalid_request_protocol}"
 
-        request = HTTPRequest()
         with assert_raises(InvalidHTTPProtocol, error_message):
-            request.parse_headers(data)
+            parse_headers(data)
 
 
 class TestRequestHeadersParsing:
@@ -100,12 +99,12 @@ class TestRequestHeadersParsing:
     async def test_should_parse_valid_request_headers(self, request_headers: str, expected_headers: dict):
         data = f'GET / HTTP/1.1\r\n{request_headers}'
 
-        request = HTTPRequest()
-        request.parse_headers(data)
+        method, url, protocol, headers = parse_headers(data)
+        request = HTTPRequest(method, url, protocol, headers)
 
         assert_equal(request.method, HTTPRequestMethod.GET)
-        assert_equal(request.target, "/")
-        assert_equal(request.protocol, HTTPRequestProtocol.HTTP_1_1)
+        assert_equal(request.url, "/")
+        assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, expected_headers)
 
     @pytest.mark.parametrize(
@@ -119,6 +118,5 @@ class TestRequestHeadersParsing:
     async def test_should_fail_to_parse_invalid_request_headers(self, invalid_request_headers: str):
         data = f'GET / HTTP/1.1\r\n{invalid_request_headers}'
 
-        request = HTTPRequest()
         with assert_raises(InvalidHTTPHeaders):
-            request.parse_headers(data)
+            parse_headers(data)

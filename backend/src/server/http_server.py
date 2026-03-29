@@ -1,30 +1,18 @@
-from datetime import datetime, timezone
 from pathlib import Path
 from socket import socket
 
-from requests.exceptions import (
-    InvalidBodyLength,
-    InvalidDecoding,
-    InvalidRequest,
-)
-from requests.http_request import HTTPRequest
+from request.http_request import HTTPRequest, parse_headers
+from response.http_response import HTTPResponse
+from response.schema import HTTPResponseStatusCode
+from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
 
 class HTTPServer(TCPServer):
-    HEADERS = {
-        "Server": "Afonso's Server",
-        "Content-Type": "text/html",
-    }
-
-    STATUS_CODES = {
-        200: "OK",
-        404: "Not Found",
-    }
-
     TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
 
-    def handle_request(self, client_connection: socket) -> str:
+    def handle_request(self, client_connection: socket) -> HTTPResponse:
+        # since data might arrive in chunks, loop until no more data = end of request
         # loop makes sure all headers are present in the request
         raw_data = b""
         while b"\r\n\r\n" not in raw_data:
@@ -43,8 +31,8 @@ class HTTPServer(TCPServer):
         except ValueError:
             raise InvalidRequest()
 
-        request = HTTPRequest()
-        request.parse_headers(headers)
+        method, url, protocol, headers = parse_headers(request_headers=headers)
+        request = HTTPRequest(method, url, protocol, headers)
 
         # since data might arrive in chunks, parsing the body requires us to know how long it is
         content_length = int(request.headers.get("Content-Length", 0))
@@ -54,6 +42,7 @@ class HTTPServer(TCPServer):
                 break
             body += chunk_data
 
+        # TODO: What should happen if len(body) > content_length? Truncate?
         if len(body) != content_length:
             raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
 
@@ -61,36 +50,22 @@ class HTTPServer(TCPServer):
             body = body.decode(encoding="UTF-8", errors="strict") if body else None
         except UnicodeDecodeError:
             raise InvalidDecoding()
+        else:
+            request.parse_body(body)
 
-        request.parse_body(body)
+        response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
+        if request.method != "GET":
+            return response.set_status_code(HTTPResponseStatusCode.HTTP_501)
 
-        # TODO: need to parse request to check URL, get method and route action.
-        # how can I efficiently route a request based on the method? would a decorator help here?
-        status_line = self.get_status_line(status_code=200)
-        response_headers = self.get_response_headers()
+        # TODO: how can I efficiently route a request based on the method? would a decorator help here?
+        # let the server know about a routing table. Which routes matches the URL the request uses.
+        response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
+        response.send_headers()
 
         get_request_template = self.TEMPLATES_PATH / "get_request.html"
         with get_request_template.open(mode="r", encoding="utf-8") as template:
-            response_body = template.read().format(server_name=self.HEADERS["Server"])
+            response.set_body(template.read().format(server_name=response.headers["Server"]))
 
-        response = f"{status_line}{response_headers}\r\n{response_body}"
+        response.send_body()
+
         return response
-
-    def get_status_line(self, status_code: int) -> str:
-        if status_code not in self.STATUS_CODES:
-            raise Exception(f"invalid status code: '{status_code}'")
-
-        status_line = f"HTTP/1.1 {status_code} {self.STATUS_CODES[status_code]}\r\n"
-        return status_line
-
-    def get_response_headers(self, extra_headers: dict[str, str] = None) -> str:
-        headers = self.HEADERS.copy()
-        headers["Date"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-
-        if extra_headers:
-            headers.update(extra_headers)
-
-        response_headers = "".join(
-            f"{header_name}: {header_value}\r\n" for header_name, header_value in headers.items()
-        )
-        return response_headers
