@@ -1,5 +1,4 @@
 from displayable_exceptions.displayable_exception import DisplayableException
-from response.schema import HTTPResponseStatusCode
 
 
 class InvalidHTTPStatusCode(DisplayableException):
