@@ -4,7 +4,7 @@ from socket import socket
 from request.http_request import HTTPRequest, parse_headers
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
-from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
+from server.exceptions import InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
 
@@ -12,9 +12,9 @@ class HTTPServer(TCPServer):
     TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
 
     def handle_request(self, client_connection: socket) -> HTTPResponse:
-        # loop makes sure all headers are present in the request
+        # since data might arrive in chunks, loop until no more data = end of request
         raw_data = b""
-        while b"\r\n\r\n" not in raw_data:
+        while True:
             # receive data from the socket. The return value is a bytes object representing the data received.
             # maximum amount of data to be received at once is specified by bufsize.
             chunk_data = client_connection.recv(1024)
@@ -30,21 +30,8 @@ class HTTPServer(TCPServer):
         except ValueError:
             raise InvalidRequest()
 
-        method, url, headers = parse_headers(request_headers=headers)
-        request = HTTPRequest(method, url, headers)
-
-        # since data might arrive in chunks, parsing the body requires us to know how long it is
-        content_length = int(request.headers.get("Content-Length", 0))
-        while len(body) < content_length:
-            chunk_data = client_connection.recv(1024)
-            if not chunk_data:
-                break
-            body += chunk_data
-
-        # TODO: What should happen if len(body) > content_length? Truncate?
-        # Client will not always know content-length, no more data = end of request
-        if len(body) != content_length:
-            raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+        method, url, protocol, headers = parse_headers(request_headers=headers)
+        request = HTTPRequest(method, url, protocol, headers)
 
         try:
             body = body.decode(encoding="UTF-8", errors="strict") if body else None
