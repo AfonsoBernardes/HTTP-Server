@@ -9,7 +9,11 @@ from request.schema import HTTPRequestMethod
 from server.schema import HTTPProtocol
 
 
-def parse_headers(request_headers: str) -> Tuple[HTTPRequestMethod, str, Dict[str, str], ]:
+def parse_headers(request_headers: str) -> Tuple[
+    HTTPRequestMethod,
+    str,
+    Dict[str, str],
+]:
     request_headers = request_headers.splitlines()
 
     # parse request line: <METHOD> <TARGET> <PROTOCOL>
