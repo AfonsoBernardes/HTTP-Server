@@ -20,7 +20,7 @@ class HTTPRequest:
         self.headers: Dict[str, str] = {}
         self.body = None
 
-    # free function return headers, url, body and methods, verify protocol
+    # TODO: free function return headers, url, body and methods, verify protocol
     def parse_headers(self, request_headers: str):
         request_headers = request_headers.splitlines()
 
@@ -47,6 +47,6 @@ class HTTPRequest:
         except ValueError:
             raise InvalidHTTPProtocol(request_line[2])
 
-    # think about writing body to a file and process from there
+    # TODO: think about writing body to a file and process from there
     def parse_body(self, request_body: str):
         self.body = request_body if request_body else None

@@ -11,7 +11,7 @@ class HTTPResponse:
     headers: Dict[str, str]
     body: Optional[str]
 
-    # Response should knwo about the socket, optimization for files and support strema repsonses
+    # TODO: Response should know about the socket, optimization for files and support strema repsonses
     def __init__(self, http_protocol: HTTPProtocol) -> None:
         self.protocol = http_protocol
         self.headers = {
@@ -33,7 +33,7 @@ class HTTPResponse:
 
         if extra_headers:
             self.headers.update(extra_headers)
-    # should be able to send headers to the client before sending the full body
+    # TODO: Should be able to send headers to the client before sending the full body
 
     def get_headers(self) -> str:
         response_headers = "".join(
