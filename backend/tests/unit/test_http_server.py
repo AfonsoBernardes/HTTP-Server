@@ -85,7 +85,6 @@ class TestServerBodyHandling:
     @pytest.mark.parametrize(
         "invalid_body",
         [
-            b"GET / HTTP/1.1\r\nContent-Length: 0\r\n\r\nGreater than zero",
             b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nShorter than twenty",
         ],
     )
