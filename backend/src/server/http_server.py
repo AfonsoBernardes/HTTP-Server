@@ -37,10 +37,17 @@ class HTTPServer(TCPServer):
         # 1. receive a zero-length chunk Transfer-Encoding: Chunked
         # 2. know how long it is via Content-Length
         # 3. if none is present, Bad Request
-        if "Transfer-Encoding" in headers:
-            transfer_encoding = headers["Transfer-Encoding"]
-        else:
-            content_length = int(request.headers.get("Content-Length", 0))
+        # TODO: I've seen that transfer-encoding is not universally supported in the request.
+        # transfer_encoding = headers.get("Transfer-Encoding", None)
+        # if transfer_encoding and transfer_encoding.lower() == "chunked":
+        #     while True:
+        #         chunk_data = client_connection.recv(1024)
+        #         if len(chunk_data) == 0:
+        #             break
+        #         body += chunk_data
+
+        content_length = int(request.headers.get("Content-Length", 0))
+        if content_length:
             while len(body) < content_length:
                 chunk_data = client_connection.recv(1024)
                 if not chunk_data:

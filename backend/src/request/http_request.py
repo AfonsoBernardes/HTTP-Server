@@ -59,5 +59,5 @@ class HTTPRequest:
         self.body = None
 
     # TODO: think about writing body to a file and process from there
-    def parse_body(self, request_body: str):
+    def parse_body(self, request_body: Optional[str]):
         self.body = request_body if request_body else None
