@@ -20,5 +20,5 @@ jobs:
         run: cd backend && docker build . -t http-backend
 
       - name: Linting
-        run: cd backend && docker run --rm http-backend ./scripts/lint.sh
+        run: cd backend && docker run --rm --volume .:/app http-backend ./scripts/lint.sh
 
