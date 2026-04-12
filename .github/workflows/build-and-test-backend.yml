@@ -19,6 +19,9 @@ jobs:
       - name: Build Docker Image
         run: cd backend && docker build . -t http-backend
 
+      - name: Set up Virtual Environment
+        run: cd backend && docker run --rm --volume .:/app http-backend ./scripts/sync.sh
+
       - name: Linting
         run: cd backend && docker run --rm --volume .:/app http-backend ./scripts/lint.sh
 
