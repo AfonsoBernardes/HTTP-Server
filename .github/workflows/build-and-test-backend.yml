@@ -6,6 +6,9 @@ on:
   workflow_call:
   pull_request:
 
+env:
+  DOCKER_VENV: ".venv@docker"
+
 jobs:
   build-backend:
     name: Build Backend Service
@@ -25,3 +28,5 @@ jobs:
       - name: Linting
         run: cd backend && docker run --rm --volume .:/app http-backend ./scripts/lint.sh
 
+      - name: Run Unit Tests
+        run: cd backend && docker run --rm --volume .:/app http-backend /app/${{ env.DOCKER_VENV }}/bin/pytest tests/unit
