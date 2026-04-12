@@ -1,8 +1,9 @@
-name: Pull Request Labeler
+name: Pull Request Size Labeler
 
-run-name: Labelling PR \#${{ github.event.pull_request.number }}
+run-name: "Labelling PR #${{ github.event.pull_request.number }}"
 
-on: [pull_request]
+on:
+  pull_request:
 
 jobs:
   pr-size-labler:
