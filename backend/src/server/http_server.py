@@ -4,12 +4,20 @@ from socket import socket
 from request.http_request import HTTPRequest, parse_headers
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
+from router.http_router import HTTPRouter
 from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
 
 class HTTPServer(TCPServer):
     TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
+
+    def __init__(self):
+        super().__init__()
+        self.router = HTTPRouter()
+
+    def include_route(self, route: str):
+        self.router.routes[route] = {}
 
     def handle_request(self, client_connection: socket) -> HTTPResponse:
         # data might arrive in chunks loop makes sure all headers are present in the request
