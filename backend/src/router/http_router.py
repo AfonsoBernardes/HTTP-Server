@@ -7,7 +7,7 @@ from router.exceptions import DuplicateRoute, URLNotFound, HandlerNotFound
 class HTTPRouter:
 
     def __init__(self, prefix: Optional[str] = None):
-        self.routes = Dict[str, Dict[HTTPRequestMethod, Callable]] = {}
+        self.routes: Dict[str, Dict[HTTPRequestMethod, Callable]] = {}
 
     def include_route(self, path: str, method: HTTPRequestMethod, handler: Callable) -> None:
         if not self.routes.get(path):
@@ -18,7 +18,7 @@ class HTTPRouter:
 
         self.routes[path][method] = handler
 
-    def resolve(self, url: str, method: HTTPRequestMethod) -> None:
+    def resolve(self, url: str, method: HTTPRequestMethod) -> Callable:
         route = self.routes.get(url)
         if not route:
             raise URLNotFound(url)
@@ -26,6 +26,8 @@ class HTTPRouter:
         handler = route.get(method)
         if not handler:
             raise HandlerNotFound(url, method)
+
+        return handler
 
 
     # Helper handlers
