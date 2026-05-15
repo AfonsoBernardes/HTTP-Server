@@ -1,7 +1,7 @@
 from typing import Callable, Dict, Optional
 
 from request.schema import HTTPRequestMethod
-from router.exceptions import DuplicateRoute, URLNotFound, HandlerNotFound
+from router.exceptions import DuplicateRoute, HandlerNotFound, URLNotFound
 
 
 class HTTPRouter:
@@ -28,7 +28,6 @@ class HTTPRouter:
             raise HandlerNotFound(url, method)
 
         return handler
-
 
     # Helper handlers
     def get(self, path: str) -> Callable:

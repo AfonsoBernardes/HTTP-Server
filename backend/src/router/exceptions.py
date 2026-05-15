@@ -6,9 +6,11 @@ class URLNotFound(DisplayableException):
     def __init__(self, url: str):
         super().__init__(f"URL {url!r} not found")
 
+
 class HandlerNotFound(DisplayableException):
     def __init__(self, url: str, method: HTTPRequestMethod):
         super().__init__(f"no handler found for {method.value!r} {url!r}")
+
 
 class DuplicateRoute(DisplayableException):
     def __init__(self, route: str, method: HTTPRequestMethod):

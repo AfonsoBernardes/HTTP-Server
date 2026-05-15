@@ -1,6 +1,6 @@
 from pathlib import Path
 from socket import socket
-from typing import Dict, Callable, Optional
+from typing import Callable, Dict, Optional
 
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -30,7 +30,7 @@ class HTTPServer(TCPServer):
         for prefix in self.routers.keys():
             if url.startswith(prefix):
                 router = self.routers[prefix]
-                sub_path = url[len(prefix):]
+                sub_path = url[len(prefix) :]
 
                 return router.resolve(sub_path, method)
 
