@@ -19,7 +19,7 @@ def run_server():
     # Depending on the request, return a proper response; let's do a "200 OK" or a "400 Bad Request" for now.
     server = HTTPServer()
 
-    server.include_route(prefix="/users", router=users.router)
+    server.include_router(prefix="/users", router=users.router)
     server.run_server()
 
 
