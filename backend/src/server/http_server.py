@@ -1,9 +1,11 @@
 from pathlib import Path
 from socket import socket
+from typing import Dict
 
 from request.http_request import HTTPRequest, parse_headers
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
+from router.exceptions import DuplicateRouterPrefix
 from router.http_router import HTTPRouter
 from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
@@ -14,10 +16,19 @@ class HTTPServer(TCPServer):
 
     def __init__(self):
         super().__init__()
-        self.router = HTTPRouter()
+        self.routers: Dict[str, HTTPRouter] = {}
 
-    def include_route(self, route: str):
-        self.router.routes[route] = {}
+    def include_route(self, prefix: str, router: HTTPRouter) -> None:
+        if prefix in self.routers:
+            raise DuplicateRouterPrefix(prefix=prefix)
+
+        self.routers[prefix] = router
+
+    def resolve_route(self, url: str) -> None:
+        # TODO: for a given URL, we need to check if it starts with a known prefix
+        # if it does, get the corresponding Router and search for the path within
+        # if not, return an error or None
+        pass
 
     def handle_request(self, client_connection: socket) -> HTTPResponse:
         # data might arrive in chunks loop makes sure all headers are present in the request
@@ -76,11 +87,11 @@ class HTTPServer(TCPServer):
             request.parse_body(body)
 
         response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
+        # TODO: let the server know about a routing table. Which routes matches the URL the request uses.
+        # we need to resolve the route here, call the corresponding handler and that should be the reponse
         if request.method != "GET":
             return response.set_status_code(HTTPResponseStatusCode.HTTP_501)
 
-        # TODO: how can I efficiently route a request based on the method? would a decorator help here?
-        # let the server know about a routing table. Which routes matches the URL the request uses.
         response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
         response.send_headers()
 
