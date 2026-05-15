@@ -1,7 +1,7 @@
 from typing import Callable, Dict, Optional
 
 from request.schema import HTTPRequestMethod
-from router.exceptions import DuplicateRoute
+from router.exceptions import DuplicateRoute, URLNotFound, HandlerNotFound
 
 
 class HTTPRouter:
@@ -9,38 +9,47 @@ class HTTPRouter:
     def __init__(self, prefix: Optional[str] = None):
         self.routes = Dict[str, Dict[HTTPRequestMethod, Callable]] = {}
 
-    def include_route(self, route: str, method: HTTPRequestMethod, handler: Callable) -> None:
-        if not self.routes.get(route):
-            self.routes[route] = {}
+    def include_route(self, path: str, method: HTTPRequestMethod, handler: Callable) -> None:
+        if not self.routes.get(path):
+            self.routes[path] = {}
 
-        if method in self.routes[route]:
-            raise DuplicateRoute(route, method)
+        if method in self.routes[path]:
+            raise DuplicateRoute(path, method)
 
-        self.routes[route][method] = handler
+        self.routes[path][method] = handler
+
+    def resolve(self, url: str, method: HTTPRequestMethod) -> None:
+        route = self.routes.get(url)
+        if not route:
+            raise URLNotFound(url)
+
+        handler = route.get(method)
+        if not handler:
+            raise HandlerNotFound(url, method)
 
 
     # Helper handlers
-    def get(self, route: str) -> Callable:
-        return self._decorator(route, HTTPRequestMethod.GET)
+    def get(self, path: str) -> Callable:
+        return self._decorator(path, HTTPRequestMethod.GET)
 
-    def delete(self, route: str) -> Callable:
-        return self._decorator(route, HTTPRequestMethod.DELETE)
+    def delete(self, path: str) -> Callable:
+        return self._decorator(path, HTTPRequestMethod.DELETE)
 
-    def patch(self, route: str) -> Callable:
-        return self._decorator(route, HTTPRequestMethod.PATCH)
+    def patch(self, path: str) -> Callable:
+        return self._decorator(path, HTTPRequestMethod.PATCH)
 
-    def post(self, route: str) -> Callable:
-        return self._decorator(route, HTTPRequestMethod.POST)
+    def post(self, path: str) -> Callable:
+        return self._decorator(path, HTTPRequestMethod.POST)
 
-    def put(self, route: str) -> Callable:
-        return self._decorator(route, HTTPRequestMethod.PUT)
+    def put(self, path: str) -> Callable:
+        return self._decorator(path, HTTPRequestMethod.PUT)
 
-    def head(self, route: str) -> Callable:
-        return self._decorator(route, HTTPRequestMethod.HEAD)
+    def head(self, path: str) -> Callable:
+        return self._decorator(path, HTTPRequestMethod.HEAD)
 
-    def _decorator(self, route: str, method: HTTPRequestMethod) -> Callable:
+    def _decorator(self, path: str, method: HTTPRequestMethod) -> Callable:
         def _wrapper(handler: Callable) -> Callable:
-            self.include_route(route, method, handler)
+            self.include_route(path, method, handler)
             return handler
 
         return _wrapper
