@@ -1,8 +1,9 @@
 from pathlib import Path
 from socket import socket
-from typing import Dict
+from typing import Dict, Callable, Optional
 
 from request.http_request import HTTPRequest, parse_headers
+from request.schema import HTTPRequestMethod
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
 from router.exceptions import DuplicateRouterPrefix
@@ -12,8 +13,6 @@ from server.tcp_server import TCPServer
 
 
 class HTTPServer(TCPServer):
-    TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
-
     def __init__(self):
         super().__init__()
         self.routers: Dict[str, HTTPRouter] = {}
@@ -24,11 +23,18 @@ class HTTPServer(TCPServer):
 
         self.routers[prefix] = router
 
-    def resolve_route(self, url: str) -> None:
+    def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
         # TODO: for a given URL, we need to check if it starts with a known prefix
         # if it does, get the corresponding Router and search for the path within
         # if not, return an error or None
-        pass
+        for prefix in self.routers.keys():
+            if url.startswith(prefix):
+                router = self.routers[prefix]
+                sub_path = url[len(prefix):]
+
+                return router.resolve(sub_path, method)
+
+        return None
 
     def handle_request(self, client_connection: socket) -> HTTPResponse:
         # data might arrive in chunks loop makes sure all headers are present in the request
@@ -86,19 +92,22 @@ class HTTPServer(TCPServer):
         else:
             request.parse_body(body)
 
-        response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
         # TODO: let the server know about a routing table. Which routes matches the URL the request uses.
         # we need to resolve the route here, call the corresponding handler and that should be the reponse
-        if request.method != "GET":
-            return response.set_status_code(HTTPResponseStatusCode.HTTP_501)
+        response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
 
-        response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
+        request_handler = self.resolve_route(url=url, method=method)
+
+        body = None
+        if request_handler:
+            body = request_handler()
+            response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
+        else:
+            response.set_status_code(HTTPResponseStatusCode.HTTP_501)
+
         response.send_headers()
 
-        get_request_template = self.TEMPLATES_PATH / "get_request.html"
-        with get_request_template.open(mode="r", encoding="utf-8") as template:
-            response.set_body(template.read().format(server_name=response.headers["Server"]))
-
+        response.set_body(body)
         response.send_body()
 
         return response
