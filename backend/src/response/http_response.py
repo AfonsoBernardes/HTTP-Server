@@ -42,7 +42,7 @@ class HTTPResponse:
 
     # Content-Type will depend on body
     def set_body(self, body: Optional[str]):
-        self.body = body if body else None
+        self.body = body if body else ""
 
     def get_body(self) -> Optional[str]:
         return self.body
