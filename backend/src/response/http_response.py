@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timezone
 from socket import socket
 from typing import Dict, Optional
@@ -10,7 +11,7 @@ class HTTPResponse:
     protocol: HTTPProtocol
     status_code: HTTPResponseStatusCode
     headers: Dict[str, str]
-    body: Optional[str]
+    body: str
 
     def __init__(self, client_connection: socket, http_protocol: HTTPProtocol):
         self.client_connection = client_connection
@@ -40,9 +41,8 @@ class HTTPResponse:
         header_section = f"{status_line}\r\n{response_headers}\r\n\r\n"
         self.client_connection.send(header_section.encode("utf-8"))
 
-    # Content-Type will depend on body
     def set_body(self, body: Optional[str]):
-        self.body = body if body else ""
+        self.body = json.dumps(body) if body else ""
 
     def get_body(self) -> Optional[str]:
         return self.body
