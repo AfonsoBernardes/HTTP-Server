@@ -1,4 +1,3 @@
-from pathlib import Path
 from socket import socket
 from typing import Callable, Dict, Optional
 
@@ -93,7 +92,7 @@ class HTTPServer(TCPServer):
             request.parse_body(body)
 
         # TODO: let the server know about a routing table. Which routes matches the URL the request uses.
-        # we need to resolve the route here, call the corresponding handler and that should be the reponse
+        # we need to resolve the route here, call the corresponding handler and that should be the response
         response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
 
         request_handler = self.resolve_route(url=url, method=method)
@@ -102,6 +101,8 @@ class HTTPServer(TCPServer):
         if request_handler:
             body = request_handler()
             response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
+            response.set_headers({"Content-Type": body.content_type.value})
+            body = body.data
         else:
             response.set_status_code(HTTPResponseStatusCode.HTTP_501)
 
