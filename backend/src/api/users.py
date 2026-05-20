@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from api.schema import Response, ContentType
+from api.schema import ContentType, Response
 from router.http_router import HTTPRouter
 
 DATABASE_PATH = Path("./src/database")
