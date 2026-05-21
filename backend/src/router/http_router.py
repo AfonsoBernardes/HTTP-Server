@@ -6,7 +6,7 @@ from router.exceptions import DuplicateRoute, HandlerNotFound, URLNotFound
 
 class HTTPRouter:
 
-    def __init__(self, prefix: Optional[str] = None):
+    def __init__(self):
         self.routes: Dict[str, Dict[HTTPRequestMethod, Callable]] = {}
 
     def include_route(self, path: str, method: HTTPRequestMethod, handler: Callable) -> None:
