@@ -23,9 +23,6 @@ class HTTPServer(TCPServer):
         self.routers[prefix] = router
 
     def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
-        # TODO: for a given URL, we need to check if it starts with a known prefix
-        # if it does, get the corresponding Router and search for the path within
-        # if not, return an error or None
         for prefix in self.routers.keys():
             if url.startswith(prefix):
                 router = self.routers[prefix]
