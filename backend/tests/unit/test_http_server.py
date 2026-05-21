@@ -1,6 +1,8 @@
 import pytest
-from asserts import assert_raises
+from asserts import assert_raises, assert_equal, assert_in
 
+from router.exceptions import DuplicateRouterPrefix
+from router.http_router import HTTPRouter
 from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
 from server.http_server import HTTPServer
 
@@ -118,3 +120,29 @@ class TestServerBodyHandling:
         with assert_raises(InvalidDecoding):
             http_server.handle_request(fake_connection)
 
+class TestServerRouting:
+    @pytest.mark.asyncio
+    async def test_should_include_valid_router_prefix(self):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+        prefix = "/test_prefix"
+
+        http_server.include_router(prefix=prefix, router=router)
+
+        assert_in(prefix, http_server.routers)
+        assert_equal(http_server.routers[prefix], router)
+
+    @pytest.mark.asyncio
+    async def test_should_fail_to_include_duplicate_router_prefix(self):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+        prefix = "/test_prefix"
+
+        http_server.include_router(prefix=prefix, router=router)
+
+        assert_in(prefix, http_server.routers)
+        assert_equal(http_server.routers[prefix], router)
+
+        expected_error_message = f"a router with prefix {prefix!r} already exists"
+        with assert_raises(DuplicateRouterPrefix, expected_error_message):
+            http_server.include_router(prefix=prefix, router=router)
