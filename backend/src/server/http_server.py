@@ -17,6 +17,7 @@ class HTTPServer(TCPServer):
         self.routers: Dict[str, HTTPRouter] = {}
 
     def include_router(self, prefix: str, router: HTTPRouter) -> None:
+        # TODO: make separate None prefix to make it optinal
         if prefix in self.routers:
             raise DuplicateRouterPrefix(prefix=prefix)
 
