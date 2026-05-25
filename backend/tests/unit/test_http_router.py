@@ -114,6 +114,7 @@ class TestIncludeRoute:
             with assert_raises(HandlerNotFound, f"no handler found for {request_method.value!r} {TEST_PATH!r}"):
                 router.resolve(url=TEST_PATH, method=request_method)
 
+
     class TestRouterDecorator:
         @pytest.mark.asyncio
         async def test_should_create_route(self):
