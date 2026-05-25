@@ -13,8 +13,8 @@ class HandlerNotFound(DisplayableException):
 
 
 class DuplicateRoute(DisplayableException):
-    def __init__(self, route: str, method: HTTPRequestMethod):
-        super().__init__(f"{method.value} already exists for route {route!r}")
+    def __init__(self, path: str, method: HTTPRequestMethod):
+        super().__init__(f"{method.value!r} already exists for path {path!r}")
 
 
 class DuplicateRouterPrefix(DisplayableException):
