@@ -1,5 +1,6 @@
 from displayable_exceptions.displayable_exception import DisplayableException
 from request.schema import HTTPRequestMethod
+from router.http_router import HTTPRouter
 
 
 class URLNotFound(DisplayableException):
@@ -15,6 +16,10 @@ class HandlerNotFound(DisplayableException):
 class DuplicateRoute(DisplayableException):
     def __init__(self, path: str, method: HTTPRequestMethod):
         super().__init__(f"{method.value!r} already exists for path {path!r}")
+
+class DuplicateRouter(DisplayableException):
+    def __init__(self):
+        super().__init__("router already exists")
 
 
 class DuplicateRouterPrefix(DisplayableException):
