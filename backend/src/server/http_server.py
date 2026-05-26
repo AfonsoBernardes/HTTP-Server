@@ -1,11 +1,11 @@
 from socket import socket
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, List
 
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
-from router.exceptions import DuplicateRouterPrefix
+from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
 from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
@@ -14,19 +14,27 @@ from server.tcp_server import TCPServer
 class HTTPServer(TCPServer):
     def __init__(self):
         super().__init__()
-        self.routers: Dict[str, HTTPRouter] = {}
+        self.prefixed_routers: Dict[str, HTTPRouter] = {}
+        self.free_routers: List[HTTPRouter] = []
 
     def include_router(self, router: HTTPRouter, prefix: Optional[str] = None) -> None:
-        # TODO: make separate None prefix to make it optional
-        if prefix and prefix in self.routers:
-            raise DuplicateRouterPrefix(prefix=prefix)
+        if router in self.free_routers or router in self.prefixed_routers.values():
+            raise DuplicateRouter()
 
-        self.routers[prefix] = router
+        if prefix:
+            if prefix in self.prefixed_routers:
+                raise DuplicateRouterPrefix(prefix=prefix)
+
+            self.prefixed_routers[prefix] = router
+
+        else:
+            self.free_routers.append(router)
+
 
     def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
-        for prefix in self.routers.keys():
+        for prefix in self.prefixed_routers.keys():
             if url.startswith(prefix):
-                router = self.routers[prefix]
+                router = self.prefixed_routers[prefix]
                 sub_path = url[len(prefix) :]
 
                 return router.resolve(sub_path, method)
