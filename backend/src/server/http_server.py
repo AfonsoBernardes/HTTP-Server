@@ -1,11 +1,11 @@
 from socket import socket
-from typing import Callable, Dict, Optional, List
+from typing import Callable, Dict, List, Optional
 
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
-from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
+from router.exceptions import DuplicateRouter, DuplicateRouterPrefix
 from router.http_router import HTTPRouter
 from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
@@ -29,7 +29,6 @@ class HTTPServer(TCPServer):
 
         else:
             self.free_routers.append(router)
-
 
     def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
         for prefix in self.prefixed_routers.keys():

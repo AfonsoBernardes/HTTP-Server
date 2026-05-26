@@ -16,6 +16,7 @@ class DuplicateRoute(DisplayableException):
     def __init__(self, path: str, method: HTTPRequestMethod):
         super().__init__(f"{method.value!r} already exists for path {path!r}")
 
+
 class DuplicateRouter(DisplayableException):
     def __init__(self):
         super().__init__("router already exists")
