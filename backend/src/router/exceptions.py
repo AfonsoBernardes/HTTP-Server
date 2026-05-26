@@ -1,6 +1,5 @@
 from displayable_exceptions.displayable_exception import DisplayableException
 from request.schema import HTTPRequestMethod
-from router.http_router import HTTPRouter
 
 
 class URLNotFound(DisplayableException):
