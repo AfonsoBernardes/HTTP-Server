@@ -130,8 +130,8 @@ class TestServerRouting:
 
         http_server.include_router(prefix=prefix, router=router)
 
-        assert_in(prefix, http_server.routers)
-        assert_equal(http_server.routers[prefix], router)
+        assert_in(prefix, http_server.prefixed_routers)
+        assert_equal(http_server.prefixed_routers[prefix], router)
 
     @pytest.mark.asyncio
     async def test_should_fail_to_include_duplicate_router_prefix(self):
@@ -141,8 +141,8 @@ class TestServerRouting:
 
         http_server.include_router(prefix=prefix, router=router)
 
-        assert_in(prefix, http_server.routers)
-        assert_equal(http_server.routers[prefix], router)
+        assert_in(prefix, http_server.prefixed_routers)
+        assert_equal(http_server.prefixed_routers[prefix], router)
 
         expected_error_message = f"a router with prefix {prefix!r} already exists"
         with assert_raises(DuplicateRouterPrefix, expected_error_message):
@@ -167,8 +167,8 @@ class TestServerRouting:
         prefix = "/test_prefix"
         http_server.include_router(prefix=prefix, router=router)
 
-        assert_in(prefix, http_server.routers)
-        assert_equal(http_server.routers[prefix], router)
+        assert_in(prefix, http_server.prefixed_routers)
+        assert_equal(http_server.prefixed_routers[prefix], router)
 
         result = http_server.resolve_route(url=f"{prefix}{url}", method=http_method)
 
@@ -187,8 +187,8 @@ class TestServerRouting:
         prefix = "/test_prefix"
         http_server.include_router(prefix=prefix, router=router)
 
-        assert_in(prefix, http_server.routers)
-        assert_equal(http_server.routers[prefix], router)
+        assert_in(prefix, http_server.prefixed_routers)
+        assert_equal(http_server.prefixed_routers[prefix], router)
 
         result = http_server.resolve_route(url=f"/not_right_prefix/", method=HTTPRequestMethod.GET)
         assert_is_none(result)
