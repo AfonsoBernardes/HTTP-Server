@@ -1,8 +1,10 @@
+from typing import Optional
+
 import pytest
 from asserts import assert_raises, assert_equal, assert_in, assert_is_none
 
 from request.schema import HTTPRequestMethod
-from router.exceptions import DuplicateRouterPrefix
+from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
 from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
 from server.http_server import HTTPServer
@@ -123,18 +125,15 @@ class TestServerBodyHandling:
 
 class TestServerRouting:
     @pytest.mark.asyncio
-    async def test_should_include_valid_router_prefix(self):
+    async def test_should_include_router_without_prefix(self):
         http_server = HTTPServer()
         router = HTTPRouter()
-        prefix = "/test_prefix"
 
-        http_server.include_router(prefix=prefix, router=router)
-
-        assert_in(prefix, http_server.prefixed_routers)
-        assert_equal(http_server.prefixed_routers[prefix], router)
+        http_server.include_router(router=router)
+        assert_in(router, http_server.free_routers)
 
     @pytest.mark.asyncio
-    async def test_should_fail_to_include_duplicate_router_prefix(self):
+    async def test_should_include_router_with_valid_prefix(self):
         http_server = HTTPServer()
         router = HTTPRouter()
         prefix = "/test_prefix"
@@ -144,9 +143,47 @@ class TestServerRouting:
         assert_in(prefix, http_server.prefixed_routers)
         assert_equal(http_server.prefixed_routers[prefix], router)
 
+    @pytest.mark.parametrize(
+        "first_prefix, second_prefix",
+        [
+            (None, None),
+            (None, "/second_prefix"),
+            ("/first_prefix", None),
+            ("/first_prefix", "/second_prefix"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_include_duplicate_router(self, first_prefix: Optional[str], second_prefix: Optional[str]):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+
+        http_server.include_router(prefix=first_prefix, router=router)
+
+        if first_prefix:
+            assert_in(first_prefix, http_server.prefixed_routers)
+            assert_equal(http_server.prefixed_routers[first_prefix], router)
+        else:
+            assert_in(router, http_server.free_routers)
+
+        expected_error_message = f"router already exists"
+        with assert_raises(DuplicateRouter, expected_error_message):
+            http_server.include_router(prefix=second_prefix, router=router)
+
+    @pytest.mark.asyncio
+    async def test_should_fail_to_include_new_router_with_duplicate_prefix(self):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+        prefix = "/test_prefix"
+
+        http_server.include_router(prefix=prefix, router=router)
+
+        assert_in(prefix, http_server.prefixed_routers)
+        assert_equal(http_server.prefixed_routers[prefix], router)
+
+        new_router = HTTPRouter()
         expected_error_message = f"a router with prefix {prefix!r} already exists"
         with assert_raises(DuplicateRouterPrefix, expected_error_message):
-            http_server.include_router(prefix=prefix, router=router)
+            http_server.include_router(prefix=prefix, router=new_router)
 
     @pytest.mark.parametrize(
         "http_method, url",
