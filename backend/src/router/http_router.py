@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict
 
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRoute, HandlerNotFound, URLNotFound
