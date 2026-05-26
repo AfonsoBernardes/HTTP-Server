@@ -1,6 +1,9 @@
 import pytest
-from asserts import assert_raises
+from asserts import assert_raises, assert_equal, assert_in, assert_is_none
 
+from request.schema import HTTPRequestMethod
+from router.exceptions import DuplicateRouterPrefix
+from router.http_router import HTTPRouter
 from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
 from server.http_server import HTTPServer
 
@@ -118,3 +121,74 @@ class TestServerBodyHandling:
         with assert_raises(InvalidDecoding):
             http_server.handle_request(fake_connection)
 
+class TestServerRouting:
+    @pytest.mark.asyncio
+    async def test_should_include_valid_router_prefix(self):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+        prefix = "/test_prefix"
+
+        http_server.include_router(prefix=prefix, router=router)
+
+        assert_in(prefix, http_server.routers)
+        assert_equal(http_server.routers[prefix], router)
+
+    @pytest.mark.asyncio
+    async def test_should_fail_to_include_duplicate_router_prefix(self):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+        prefix = "/test_prefix"
+
+        http_server.include_router(prefix=prefix, router=router)
+
+        assert_in(prefix, http_server.routers)
+        assert_equal(http_server.routers[prefix], router)
+
+        expected_error_message = f"a router with prefix {prefix!r} already exists"
+        with assert_raises(DuplicateRouterPrefix, expected_error_message):
+            http_server.include_router(prefix=prefix, router=router)
+
+    @pytest.mark.parametrize(
+        "http_method, url",
+        [
+            (request_method, "/") for request_method in HTTPRequestMethod
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_resolve_route(self, http_method: HTTPRequestMethod, url: str):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+        router.routes = {
+            url: {
+                http_method: lambda x: x,  # associate callable function to method
+            }
+        }
+
+        prefix = "/test_prefix"
+        http_server.include_router(prefix=prefix, router=router)
+
+        assert_in(prefix, http_server.routers)
+        assert_equal(http_server.routers[prefix], router)
+
+        result = http_server.resolve_route(url=f"{prefix}{url}", method=http_method)
+
+        assert_equal(result("Something"), "Something")
+
+    @pytest.mark.asyncio
+    async def test_should_resolve_route_to_none(self):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+        router.routes = {
+            "/": {
+                HTTPRequestMethod.GET: lambda x: x,  # associate callable function to method
+            }
+        }
+
+        prefix = "/test_prefix"
+        http_server.include_router(prefix=prefix, router=router)
+
+        assert_in(prefix, http_server.routers)
+        assert_equal(http_server.routers[prefix], router)
+
+        result = http_server.resolve_route(url=f"/not_right_prefix/", method=HTTPRequestMethod.GET)
+        assert_is_none(result)

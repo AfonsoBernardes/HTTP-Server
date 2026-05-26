@@ -1,15 +1,37 @@
-from pathlib import Path
 from socket import socket
+from typing import Callable, Dict, Optional
 
 from request.http_request import HTTPRequest, parse_headers
+from request.schema import HTTPRequestMethod
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
+from router.exceptions import DuplicateRouterPrefix
+from router.http_router import HTTPRouter
 from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
 
 class HTTPServer(TCPServer):
-    TEMPLATES_PATH = Path(__file__).parent.parent / "templates"
+    def __init__(self):
+        super().__init__()
+        self.routers: Dict[str, HTTPRouter] = {}
+
+    def include_router(self, prefix: str, router: HTTPRouter) -> None:
+        # TODO: make separate None prefix to make it optional
+        if prefix in self.routers:
+            raise DuplicateRouterPrefix(prefix=prefix)
+
+        self.routers[prefix] = router
+
+    def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
+        for prefix in self.routers.keys():
+            if url.startswith(prefix):
+                router = self.routers[prefix]
+                sub_path = url[len(prefix) :]
+
+                return router.resolve(sub_path, method)
+
+        return None
 
     def handle_request(self, client_connection: socket) -> HTTPResponse:
         # data might arrive in chunks loop makes sure all headers are present in the request
@@ -67,19 +89,24 @@ class HTTPServer(TCPServer):
         else:
             request.parse_body(body)
 
+        # TODO: let the server know about a routing table. Which routes matches the URL the request uses.
+        # we need to resolve the route here, call the corresponding handler and that should be the response
         response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
-        if request.method != "GET":
-            return response.set_status_code(HTTPResponseStatusCode.HTTP_501)
 
-        # TODO: how can I efficiently route a request based on the method? would a decorator help here?
-        # let the server know about a routing table. Which routes matches the URL the request uses.
-        response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
+        request_handler = self.resolve_route(url=url, method=method)
+
+        body = None
+        if request_handler:
+            body = request_handler()
+            response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
+            response.set_headers({"Content-Type": body.content_type.value})
+            body = body.data
+        else:
+            response.set_status_code(HTTPResponseStatusCode.HTTP_501)
+
         response.send_headers()
 
-        get_request_template = self.TEMPLATES_PATH / "get_request.html"
-        with get_request_template.open(mode="r", encoding="utf-8") as template:
-            response.set_body(template.read().format(server_name=response.headers["Server"]))
-
+        response.set_body(body)
         response.send_body()
 
         return response
