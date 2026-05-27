@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from socket import socket
 from typing import Dict, Optional
 
+from response.exceptions import InvalidResponseHeader
 from response.schema import HTTPResponseStatusCode
 from server.schema import HTTPProtocol
 
@@ -25,7 +26,10 @@ class HTTPResponse:
         self.headers["Date"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
 
         if extra_headers:
-            self.headers.update(extra_headers)
+            try:
+                self.headers.update(extra_headers)
+            except TypeError:
+                raise InvalidResponseHeader()
 
     def get_headers(self) -> str:
         response_headers = "".join(
@@ -41,6 +45,7 @@ class HTTPResponse:
         header_section = f"{status_line}\r\n{response_headers}\r\n\r\n"
         self.client_connection.send(header_section.encode("utf-8"))
 
+    # TODO: check different body types and how to set them here
     def set_body(self, body: Optional[str]):
         self.body = json.dumps(body) if body else ""
 
