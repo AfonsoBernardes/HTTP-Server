@@ -192,7 +192,29 @@ class TestServerRouting:
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_resolve_route(self, http_method: HTTPRequestMethod, url: str):
+    async def test_should_resolve_route_without_prefix(self, http_method: HTTPRequestMethod, url: str):
+        http_server = HTTPServer()
+        router = HTTPRouter()
+        router.routes = {
+            url: {
+                http_method: lambda x: x,  # associate callable function to method
+            }
+        }
+
+        http_server.include_router(router=router)
+        assert_in(router, http_server.free_routers)
+
+        result = http_server.resolve_route(url=url, method=http_method)
+        assert_equal(result("Something"), "Something")
+
+    @pytest.mark.parametrize(
+        "http_method, url",
+        [
+            (request_method, "/") for request_method in HTTPRequestMethod
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_resolve_route_with_prefix(self, http_method: HTTPRequestMethod, url: str):
         http_server = HTTPServer()
         router = HTTPRouter()
         router.routes = {
@@ -211,8 +233,15 @@ class TestServerRouting:
 
         assert_equal(result("Something"), "Something")
 
+    @pytest.mark.parametrize(
+        "prefix, bad_url",
+        [
+            (None, "/bad_url"),
+            ("/test_prefix", "/not_right_prefix/")
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_should_resolve_route_to_none(self):
+    async def test_should_resolve_route_to_none(self, prefix: Optional[str], bad_url: str):
         http_server = HTTPServer()
         router = HTTPRouter()
         router.routes = {
@@ -221,11 +250,13 @@ class TestServerRouting:
             }
         }
 
-        prefix = "/test_prefix"
         http_server.include_router(prefix=prefix, router=router)
 
-        assert_in(prefix, http_server.prefixed_routers)
-        assert_equal(http_server.prefixed_routers[prefix], router)
+        if prefix:
+            assert_in(prefix, http_server.prefixed_routers)
+            assert_equal(http_server.prefixed_routers[prefix], router)
+        else:
+            assert_in(router, http_server.free_routers)
 
-        result = http_server.resolve_route(url=f"/not_right_prefix/", method=HTTPRequestMethod.GET)
+        result = http_server.resolve_route(url=bad_url, method=HTTPRequestMethod.GET)
         assert_is_none(result)
