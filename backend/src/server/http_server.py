@@ -100,10 +100,7 @@ class HTTPServer(TCPServer):
         else:
             request.parse_body(body)
 
-        # TODO: let the server know about a routing table. Which routes matches the URL the request uses.
-        # we need to resolve the route here, call the corresponding handler and that should be the response
         response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
-
         request_handler = self.resolve_route(url=url, method=method)
 
         body = None
