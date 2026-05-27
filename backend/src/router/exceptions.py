@@ -17,6 +17,11 @@ class DuplicateRoute(DisplayableException):
         super().__init__(f"{method.value!r} already exists for path {path!r}")
 
 
+class DuplicateRouter(DisplayableException):
+    def __init__(self):
+        super().__init__("router already exists")
+
+
 class DuplicateRouterPrefix(DisplayableException):
     def __init__(self, prefix: str):
         super().__init__(f"a router with prefix {prefix!r} already exists")
