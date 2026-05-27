@@ -39,9 +39,8 @@ class HTTPServer(TCPServer):
                 return router.resolve(sub_path, method)
 
         for free_router in self.free_routers:
-            route = free_router.get(url)
-            if route:
-                return router.resolve(sub_path, method)
+            if free_router.get(url):
+                return free_router.resolve(url, method)
 
         return None
 
