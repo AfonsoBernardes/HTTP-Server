@@ -28,7 +28,7 @@ class HTTPResponse:
         if extra_headers:
             try:
                 self.headers.update(extra_headers)
-            except TypeError:
+            except (TypeError, ValueError):
                 raise InvalidResponseHeader()
 
     def get_headers(self) -> str:
