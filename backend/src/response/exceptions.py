@@ -7,4 +7,4 @@ class InvalidHTTPStatusCode(DisplayableException):
 
 class InvalidResponseHeader(DisplayableException):
     def __init__(self):
-        super().__init__(f"invalid reponse header")
+        super().__init__(f"invalid response header")
