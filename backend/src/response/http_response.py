@@ -1,8 +1,9 @@
 import json
 from datetime import datetime, timezone
 from socket import socket
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
+from api.schema import ContentType
 from response.exceptions import InvalidResponseHeader
 from response.schema import HTTPResponseStatusCode
 from server.schema import HTTPProtocol
@@ -18,6 +19,7 @@ class HTTPResponse:
         self.client_connection = client_connection
         self.protocol = http_protocol
         self.headers = {"Server": "Afonso's Server"}
+        self.body = ""
 
     def set_status_code(self, status_code: HTTPResponseStatusCode):
         self.status_code = status_code
@@ -45,11 +47,27 @@ class HTTPResponse:
         header_section = f"{status_line}\r\n{response_headers}\r\n\r\n"
         self.client_connection.send(header_section.encode("utf-8"))
 
-    # TODO: check different body types and how to set them here
-    def set_body(self, body: Optional[str]):
-        self.body = json.dumps(body) if body else ""
+    @staticmethod
+    def _transform_body(body: Optional[Any], content_type: ContentType) -> str:
+        match content_type:
+            case ContentType.JSON:
+                return json.dumps(body)
+            case ContentType.CSV:
+                if not body:
+                    return ""
+                if isinstance(body, list):
+                    return "\r\n".join(",".join(str(cell) for cell in row) for row in body)
+                return str(body)
+            case ContentType.PLAIN | ContentType.HTML | ContentType.CSS | ContentType.JAVASCRIPT:
+                return str(body) if body else ""
 
-    def get_body(self) -> Optional[str]:
+        return str(body) if body else ""
+
+    def set_body(self, body: Any, content_type: ContentType):
+        self.headers["Content-Type"] = content_type.value
+        self.body = self._transform_body(body, content_type)
+
+    def get_body(self) -> str:
         return self.body
 
     def send_body(self):
