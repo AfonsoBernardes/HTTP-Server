@@ -12,16 +12,16 @@ class ContentType(Enum):
 
     # Application
     JSON = "application/json"
-    XML = "application/xml"
-    FORM_URLENCODED = "application/x-www-form-urlencoded"
-    OCTET_STREAM = "application/octet-stream"
+    # XML = "application/xml"
+    # FORM_URLENCODED = "application/x-www-form-urlencoded"
+    # OCTET_STREAM = "application/octet-stream"
     PDF = "application/pdf"
     ZIP = "application/zip"
-    GRAPHQL = "application/graphql"
+    # GRAPHQL = "application/graphql"
 
     # Multipart
-    FORM_DATA = "multipart/form-data"
-    BYTE_RANGES = "multipart/byteranges"
+    # FORM_DATA = "multipart/form-data"
+    # BYTE_RANGES = "multipart/byteranges"
 
     # Image
     JPEG = "image/jpeg"
@@ -30,18 +30,18 @@ class ContentType(Enum):
     WEBP = "image/webp"
     SVG = "image/svg+xml"
 
-    # Audio
-    MPEG_AUDIO = "audio/mpeg"
-    OGG_AUDIO = "audio/ogg"
-
-    # Video
-    MP4 = "video/mp4"
-    WEBM = "video/webm"
-
-    # Font
-    WOFF = "font/woff"
-    WOFF2 = "font/woff2"
-    TTF = "font/ttf"
+    # # Audio
+    # MPEG_AUDIO = "audio/mpeg"
+    # OGG_AUDIO = "audio/ogg"
+    #
+    # # Video
+    # MP4 = "video/mp4"
+    # WEBM = "video/webm"
+    #
+    # # Font
+    # WOFF = "font/woff"
+    # WOFF2 = "font/woff2"
+    # TTF = "font/ttf"
 
 
 class Response:
