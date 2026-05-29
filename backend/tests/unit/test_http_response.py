@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, Optional
 from unittest.mock import patch
 
 import pytest
 from asserts import assert_equal, assert_in, assert_raises
 
+from api.schema import ContentType
 from conftest import FakeSocket
 from response.exceptions import InvalidResponseHeader
 from response.http_response import HTTPResponse
@@ -47,6 +49,7 @@ class TestResponse:
         assert_equal(response.headers, {"Server": "Afonso's Server"})
         assert_equal(response.status_code, status_code)
 
+class TestResponseHeaders:
     @pytest.mark.parametrize(
         "extra_headers",
         [
@@ -117,3 +120,42 @@ class TestResponse:
 
         headers_string = response.get_headers()
         assert_equal(headers_string, expected_headers_string)
+
+
+class TestResponseBody:
+    TEST_FILE_PATH = Path("./tests")
+
+    # HTML
+    TEST_HTML = open(TEST_FILE_PATH / "test.html", 'r', encoding='utf-8').read()
+    EXPECTED_HTML_STRING = '<!DOCTYPE html>\n<html lang="en">\n    <head>\n        <meta charset="UTF-8">\n        <title>Afonso\'s Server</title>\n    </head>\n    <body>\n        <h1>Test File</h1>\n        <div>\n            <p>This is a test paragraph</p>\n        </div>\n    </body>\n</html>'
+
+    # CSS
+    TEST_CSS = open(TEST_FILE_PATH / "test.css", 'r', encoding='utf-8').read()
+    EXPECTED_CSS_STRING = "body {\n    background-color: powderblue;\n}\n\nh1 {\n    color: goldenrod;\n    margin-left: 20px;\n}"
+
+    @pytest.mark.parametrize(
+        "body, content_type, expected_body_string",
+        [
+            (None, ContentType.JSON, "null"),
+            ({}, ContentType.JSON, "{}"),
+            ({"Key": "Value"}, ContentType.JSON, '{"Key": "Value"}'),
+            ("", ContentType.PLAIN, ""),
+            ("plain text", ContentType.PLAIN, "plain text"),
+            ("", ContentType.HTML, ""),
+            (TEST_HTML, ContentType.HTML, EXPECTED_HTML_STRING),
+            ("", ContentType.CSS, ""),
+            (TEST_CSS, ContentType.CSS, EXPECTED_CSS_STRING),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_transform_body(self, body, content_type: ContentType, expected_body_string: str):
+        fake_connection = FakeSocket([])
+
+        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+
+        assert_equal(response.client_connection, fake_connection)
+        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
+        assert_in("Server", response.headers)
+
+        body_string = response._transform_body(body=body, content_type=content_type)
+        assert_equal(body_string, expected_body_string)
