@@ -103,18 +103,14 @@ class HTTPServer(TCPServer):
         response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
         request_handler = self.resolve_route(url=url, method=method)
 
-        body = None
         if request_handler:
             body = request_handler()
             response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
-            response.set_headers({"Content-Type": body.content_type.value})
-            body = body.data
+            response.set_body(body=body.data, content_type=body.content_type)
         else:
             response.set_status_code(HTTPResponseStatusCode.HTTP_501)
 
         response.send_headers()
-
-        response.set_body(body)
         response.send_body()
 
         return response
