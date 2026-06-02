@@ -1,3 +1,6 @@
+from typing import Any
+
+from api.schema import ContentType
 from displayable_exceptions.displayable_exception import DisplayableException
 
 
@@ -9,3 +12,11 @@ class InvalidHTTPStatusCode(DisplayableException):
 class InvalidResponseHeader(DisplayableException):
     def __init__(self):
         super().__init__(f"invalid response header")
+
+class InvalidContent(DisplayableException):
+    def __init__(self):
+        super().__init__(f"invalid response header")
+
+class InvalidBody(DisplayableException):
+    def __init__(self, body: Any, content_type: ContentType):
+        super().__init__(f"body {body!r} cannot be serialized as {content_type.value!r}")
