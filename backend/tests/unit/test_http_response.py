@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Dict, Optional
 from unittest.mock import patch
@@ -8,7 +9,7 @@ from asserts import assert_equal, assert_in, assert_raises
 
 from api.schema import ContentType
 from conftest import FakeSocket
-from response.exceptions import InvalidResponseHeader
+from response.exceptions import InvalidResponseHeader, InvalidBody
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
 from server.schema import HTTPProtocol
@@ -201,7 +202,7 @@ class TestResponseBody:
         ],
     )
     @pytest.mark.asyncio
-    async def test_set_body(self, body, content_type: ContentType, expected_body_string: str):
+    async def test_should_set_body(self, body, content_type: ContentType, expected_body_string: str):
         fake_connection = FakeSocket([])
 
         response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
@@ -215,7 +216,7 @@ class TestResponseBody:
         assert_equal(response.headers["Content-Type"], content_type.value)
 
     @pytest.mark.asyncio
-    async def test_get_body(self):
+    async def test_should_get_body(self):
         fake_connection = FakeSocket([])
 
         response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
@@ -228,4 +229,24 @@ class TestResponseBody:
         body = response.get_body()
         assert_equal(body, "Test body")
 
+    @pytest.mark.parametrize(
+        "body, content_type",
+        [
+            ({"A", "B"}, ContentType.JSON),
+            (datetime(year=2020, month=1, day=1, hour=0, minute=0, second=0), ContentType.JSON),
+            (b"invalid", ContentType.JSON),
+            (Decimal("1.2"), ContentType.JSON),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_fail_to_set_body_with_wrong_content_type(self, body, content_type: ContentType):
+        fake_connection = FakeSocket([])
 
+        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+
+        assert_equal(response.client_connection, fake_connection)
+        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
+        assert_in("Server", response.headers)
+
+        with assert_raises(InvalidBody, f"body '{body}' cannot be serialized as '{content_type.value}'"):
+            response.set_body(body=body, content_type=content_type)

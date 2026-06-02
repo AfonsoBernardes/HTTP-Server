@@ -4,7 +4,7 @@ from socket import socket
 from typing import Any, Dict, Optional
 
 from api.schema import ContentType
-from response.exceptions import InvalidResponseHeader
+from response.exceptions import InvalidResponseHeader, InvalidBody
 from response.schema import HTTPResponseStatusCode
 from server.schema import HTTPProtocol
 
@@ -55,8 +55,11 @@ class HTTPResponse:
             return str(body) if body else ""
 
     def set_body(self, body: Any, content_type: ContentType):
-        self.headers["Content-Type"] = content_type.value
-        self.body = self._transform_body(body, content_type)
+        try:
+            self.headers["Content-Type"] = content_type.value
+            self.body = self._transform_body(body, content_type)
+        except (TypeError, ValueError):
+            raise InvalidBody(body, content_type)
 
     def get_body(self) -> str:
         return self.body
