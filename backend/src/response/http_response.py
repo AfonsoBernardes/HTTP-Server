@@ -49,17 +49,10 @@ class HTTPResponse:
 
     @staticmethod
     def _transform_body(body: Optional[Any], content_type: ContentType) -> str:
-        match content_type:
-            case ContentType.JSON:
-                return json.dumps(body)
-            case ContentType.CSV:
-                if not body:
-                    return ""
-                return str(body)
-            case ContentType.PLAIN | ContentType.HTML | ContentType.CSS | ContentType.JAVASCRIPT:
-                return str(body) if body else ""
-
-        return str(body) if body else ""
+        if content_type == ContentType.JSON:
+            return json.dumps(body)
+        else:
+            return str(body) if body else ""
 
     def set_body(self, body: Any, content_type: ContentType):
         self.headers["Content-Type"] = content_type.value

@@ -176,3 +176,56 @@ class TestResponseBody:
 
         body_string = response._transform_body(body=body, content_type=content_type)
         assert_equal(body_string, expected_body_string)
+
+    @pytest.mark.parametrize(
+        "body, content_type, expected_body_string",
+        [
+            (None, ContentType.JSON, "null"),
+            ({}, ContentType.JSON, "{}"),
+            ({"Key": "Value"}, ContentType.JSON, '{"Key": "Value"}'),
+            (None, ContentType.PLAIN, ""),
+            ("", ContentType.PLAIN, ""),
+            ("plain text", ContentType.PLAIN, "plain text"),
+            (None, ContentType.HTML, ""),
+            ("", ContentType.HTML, ""),
+            (TEST_HTML, ContentType.HTML, EXPECTED_HTML_STRING),
+            (None, ContentType.CSS, ""),
+            ("", ContentType.CSS, ""),
+            (TEST_CSS, ContentType.CSS, EXPECTED_CSS_STRING),
+            (None, ContentType.JAVASCRIPT, ""),
+            ("", ContentType.JAVASCRIPT, ""),
+            (TEST_JS, ContentType.JAVASCRIPT, EXPECTED_JS_STRING),
+            (None, ContentType.CSV, ""),
+            ("", ContentType.CSV, ""),
+            (TEST_CSV, ContentType.CSV, EXPECTED_CSV_STRING),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_set_body(self, body, content_type: ContentType, expected_body_string: str):
+        fake_connection = FakeSocket([])
+
+        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+
+        assert_equal(response.client_connection, fake_connection)
+        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
+        assert_in("Server", response.headers)
+
+        response.set_body(body=body, content_type=content_type)
+        assert_equal(response.body, expected_body_string)
+        assert_equal(response.headers["Content-Type"], content_type.value)
+
+    @pytest.mark.asyncio
+    async def test_get_body(self):
+        fake_connection = FakeSocket([])
+
+        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+
+        assert_equal(response.client_connection, fake_connection)
+        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
+        assert_in("Server", response.headers)
+
+        response.set_body(body="Test body", content_type=ContentType.PLAIN)
+        body = response.get_body()
+        assert_equal(body, "Test body")
+
+
