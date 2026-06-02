@@ -55,8 +55,6 @@ class HTTPResponse:
             case ContentType.CSV:
                 if not body:
                     return ""
-                if isinstance(body, list):
-                    return "\r\n".join(",".join(str(cell) for cell in row) for row in body)
                 return str(body)
             case ContentType.PLAIN | ContentType.HTML | ContentType.CSS | ContentType.JAVASCRIPT:
                 return str(body) if body else ""
