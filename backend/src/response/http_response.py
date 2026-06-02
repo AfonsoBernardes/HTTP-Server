@@ -1,8 +1,10 @@
 import json
 from datetime import datetime, timezone
 from socket import socket
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
+from api.schema import ContentType
+from response.exceptions import InvalidBody, InvalidResponseHeader
 from response.schema import HTTPResponseStatusCode
 from server.schema import HTTPProtocol
 
@@ -17,6 +19,7 @@ class HTTPResponse:
         self.client_connection = client_connection
         self.protocol = http_protocol
         self.headers = {"Server": "Afonso's Server"}
+        self.body = ""
 
     def set_status_code(self, status_code: HTTPResponseStatusCode):
         self.status_code = status_code
@@ -25,7 +28,10 @@ class HTTPResponse:
         self.headers["Date"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
 
         if extra_headers:
-            self.headers.update(extra_headers)
+            try:
+                self.headers.update(extra_headers)
+            except (TypeError, ValueError):
+                raise InvalidResponseHeader()
 
     def get_headers(self) -> str:
         response_headers = "".join(
@@ -41,10 +47,21 @@ class HTTPResponse:
         header_section = f"{status_line}\r\n{response_headers}\r\n\r\n"
         self.client_connection.send(header_section.encode("utf-8"))
 
-    def set_body(self, body: Optional[str]):
-        self.body = json.dumps(body) if body else ""
+    @staticmethod
+    def _transform_body(body: Optional[Any], content_type: ContentType) -> str:
+        if content_type == ContentType.JSON:
+            return json.dumps(body)
+        else:
+            return str(body) if body else ""
 
-    def get_body(self) -> Optional[str]:
+    def set_body(self, body: Any, content_type: ContentType):
+        try:
+            self.headers["Content-Type"] = content_type.value
+            self.body = self._transform_body(body, content_type)
+        except (TypeError, ValueError):
+            raise InvalidBody(body, content_type)
+
+    def get_body(self) -> str:
         return self.body
 
     def send_body(self):

@@ -3,22 +3,12 @@ from typing import Optional
 import pytest
 from asserts import assert_raises, assert_equal, assert_in, assert_is_none
 
+from conftest import FakeSocket
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
 from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
 from server.http_server import HTTPServer
-
-class FakeSocket:
-    def __init__(self, chunks):
-        self._chunks = iter(chunks)
-
-    def recv(self, bufsize: int):
-        return next(self._chunks, b"")
-
-    def send(self, data: bytes):
-        pass
-
 
 
 class TestServerHeaderHandling:

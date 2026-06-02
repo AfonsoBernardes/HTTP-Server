@@ -14,9 +14,6 @@ def run_server():
         datefmt="%Y-%m-%dT%H:%M:%SZ",
     )
 
-    # Let's restrict request to GET, POST.
-    # Find out what the structure of a request is like and start parsing line by line.
-    # Depending on the request, return a proper response; let's do a "200 OK" or a "400 Bad Request" for now.
     server = HTTPServer()
 
     server.include_router(prefix="/users", router=users.router)
