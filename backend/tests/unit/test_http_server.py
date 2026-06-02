@@ -74,8 +74,8 @@ class TestServerHeaderHandling:
             headers,
         ])
 
-        # with assert_raises(InvalidContentLength):
-        http_server.handle_request(fake_connection)
+        with assert_raises(InvalidContentLength):
+            http_server.handle_request(fake_connection)
 
 
 class TestServerBodyHandling:
