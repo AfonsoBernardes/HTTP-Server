@@ -3,6 +3,7 @@ from typing import Callable, Dict, List, Optional
 
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
+from response.exceptions import InvalidBody
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
 from router.exceptions import DuplicateRouter, DuplicateRouterPrefix
@@ -44,6 +45,8 @@ class HTTPServer(TCPServer):
 
         return None
 
+    # TODO: If these exceptions are raised, nothing is sent to the client and the connection hangs.
+    # How can I handle this? Should I do a top-level try/except block? If so, response should be created before this block so I can set_status_code if anything fails.
     def handle_request(self, client_connection: socket) -> HTTPResponse:
         # data might arrive in chunks loop makes sure all headers are present in the request
         raw_data = b""
@@ -70,6 +73,7 @@ class HTTPServer(TCPServer):
         # 1. receive a zero-length chunk Transfer-Encoding: Chunked
         # 2. know how long it is via Content-Length
         # 3. if none is present, Bad Request
+        # Couldn't really figure out about "when the request ends, client will close the connection" since if that happens, there is no way for me to send the response
 
         # TODO: I've seen that transfer-encoding is not universally supported in the request.
         # transfer_encoding = headers.get("Transfer-Encoding", None)
@@ -110,11 +114,14 @@ class HTTPServer(TCPServer):
         request_handler = self.resolve_route(url=url, method=method)
 
         if request_handler:
-            body = request_handler()
-            response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
-            response.set_body(body=body.data, content_type=body.content_type)
+            try:
+                body = request_handler()
+                response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
+                response.set_body(body=body.data, content_type=body.content_type)
+            except InvalidBody:
+                response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_500)
         else:
-            response.set_status_code(HTTPResponseStatusCode.HTTP_501)
+            response.set_status_code(HTTPResponseStatusCode.HTTP_404)
 
         response.send_headers()
         response.send_body()
