@@ -13,9 +13,11 @@ class InvalidResponseHeader(DisplayableException):
     def __init__(self):
         super().__init__(f"invalid response header")
 
+
 class InvalidContent(DisplayableException):
     def __init__(self):
         super().__init__(f"invalid response header")
+
 
 class InvalidBody(DisplayableException):
     def __init__(self, body: Any, content_type: ContentType):

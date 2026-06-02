@@ -4,7 +4,7 @@ from socket import socket
 from typing import Any, Dict, Optional
 
 from api.schema import ContentType
-from response.exceptions import InvalidResponseHeader, InvalidBody
+from response.exceptions import InvalidBody, InvalidResponseHeader
 from response.schema import HTTPResponseStatusCode
 from server.schema import HTTPProtocol
 
