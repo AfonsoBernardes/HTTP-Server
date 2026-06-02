@@ -133,18 +133,35 @@ class TestResponseBody:
     TEST_CSS = open(TEST_FILE_PATH / "test.css", 'r', encoding='utf-8').read()
     EXPECTED_CSS_STRING = "body {\n    background-color: powderblue;\n}\n\nh1 {\n    color: goldenrod;\n    margin-left: 20px;\n}"
 
+    # JS
+    TEST_JS = open(TEST_FILE_PATH / "test.js", 'r', encoding='utf-8').read()
+    EXPECTED_JS_STRING = "console.log('Test JS file.');"
+
+    # CSV
+    TEST_CSV = open(TEST_FILE_PATH / "test.csv", 'r', encoding='utf-8').read()
+    EXPECTED_CSV_STRING = 'COL_1,COL_2,COL_3\n2026-01-01T00:00:00+00,1,"A"\n2026-01-01T00:00:00+00,2,"B"'
+
     @pytest.mark.parametrize(
         "body, content_type, expected_body_string",
         [
             (None, ContentType.JSON, "null"),
             ({}, ContentType.JSON, "{}"),
             ({"Key": "Value"}, ContentType.JSON, '{"Key": "Value"}'),
+            (None, ContentType.PLAIN, ""),
             ("", ContentType.PLAIN, ""),
             ("plain text", ContentType.PLAIN, "plain text"),
+            (None, ContentType.HTML, ""),
             ("", ContentType.HTML, ""),
             (TEST_HTML, ContentType.HTML, EXPECTED_HTML_STRING),
+            (None, ContentType.CSS, ""),
             ("", ContentType.CSS, ""),
             (TEST_CSS, ContentType.CSS, EXPECTED_CSS_STRING),
+            (None, ContentType.JAVASCRIPT, ""),
+            ("", ContentType.JAVASCRIPT, ""),
+            (TEST_JS, ContentType.JAVASCRIPT, EXPECTED_JS_STRING),
+            (None, ContentType.CSV, ""),
+            ("", ContentType.CSV, ""),
+            (TEST_CSV, ContentType.CSV, EXPECTED_CSV_STRING),
         ],
     )
     @pytest.mark.asyncio
