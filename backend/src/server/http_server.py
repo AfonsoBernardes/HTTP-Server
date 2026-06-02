@@ -46,7 +46,7 @@ class HTTPServer(TCPServer):
         return None
 
     # TODO: If these exceptions are raised, nothing is sent to the client and the connection hangs.
-    # How can I handle this? Should I do a top-level try/except block? If so, response should be created before this block so I can set_status_code if anything fails.
+    #   How can I handle this? Should I do a top-level try/except block? If so, response should be created before this block so I can set_status_code if anything fails.
     def handle_request(self, client_connection: socket) -> HTTPResponse:
         # data might arrive in chunks loop makes sure all headers are present in the request
         raw_data = b""
@@ -73,11 +73,11 @@ class HTTPServer(TCPServer):
         # 1. receive a zero-length chunk Transfer-Encoding: Chunked
         # 2. know how long it is via Content-Length
         # 3. if none is present, Bad Request
-        # Couldn't really figure out about "when the request ends, client will close the connection" since if that happens, there is no way for me to send the response
+        # TODO: Couldn't really figure out about "when the request ends, client will close the connection" since if that happens, there is no way for me to send the response
 
         # TODO: I've seen that transfer-encoding is not universally supported in the request.
-        # transfer_encoding = headers.get("Transfer-Encoding", None)
-        # if transfer_encoding and transfer_encoding.lower() == "chunked":
+        #   transfer_encoding = headers.get("Transfer-Encoding", None)
+        #   if transfer_encoding and transfer_encoding.lower() == "chunked":
         #     while True:
         #         chunk_data = client_connection.recv(1024)
         #         if len(chunk_data) == 0:
