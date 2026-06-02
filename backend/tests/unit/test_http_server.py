@@ -7,7 +7,7 @@ from conftest import FakeSocket
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
-from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength
+from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength, InvalidContentLength
 from server.http_server import HTTPServer
 
 
@@ -59,6 +59,24 @@ class TestServerHeaderHandling:
 
         with assert_raises(InvalidDecoding):
             http_server.handle_request(fake_connection)
+
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            b"GET / HTTP/1.1\r\nContent-Length: ABC\r\n\r\n",
+            b"GET / HTTP/1.1\r\nContent-Length: -1\r\n\r\n",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_content_length(self, headers: bytes):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            headers,
+        ])
+
+        # with assert_raises(InvalidContentLength):
+        http_server.handle_request(fake_connection)
+
 
 class TestServerBodyHandling:
     @pytest.mark.parametrize(

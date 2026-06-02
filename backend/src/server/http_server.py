@@ -7,7 +7,7 @@ from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
 from router.exceptions import DuplicateRouter, DuplicateRouterPrefix
 from router.http_router import HTTPRouter
-from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest
+from server.exceptions import InvalidBodyLength, InvalidDecoding, InvalidRequest, InvalidContentLength
 from server.tcp_server import TCPServer
 
 
@@ -80,18 +80,24 @@ class HTTPServer(TCPServer):
         #             break
         #         body += chunk_data
 
-        content_length = int(request.headers.get("Content-Length", 0))
-        if content_length:
-            while len(body) < content_length:
-                chunk_data = client_connection.recv(1024)
-                if not chunk_data:
-                    break
-                body += chunk_data
+        try:
+            content_length = int(request.headers.get("Content-Length", 0))
+        except ValueError:
+            raise InvalidContentLength(content_length=None)
 
-            if len(body) < content_length:
-                raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
-            else:
-                body = body[:content_length] if content_length > 0 else b""
+        if content_length < 0:
+            raise InvalidContentLength(content_length=content_length)
+
+        while len(body) < content_length:
+            chunk_data = client_connection.recv(1024)
+            if not chunk_data:
+                break
+            body += chunk_data
+
+        if len(body) < content_length:
+            raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+        else:
+            body = body[:content_length] if content_length > 0 else b""
 
         try:
             body = body.decode(encoding="UTF-8", errors="strict") if body else None
