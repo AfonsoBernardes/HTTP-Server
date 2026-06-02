@@ -15,8 +15,8 @@ class ContentType(Enum):
     # XML = "application/xml"
     # FORM_URLENCODED = "application/x-www-form-urlencoded"
     # OCTET_STREAM = "application/octet-stream"
-    PDF = "application/pdf"
-    ZIP = "application/zip"
+    # PDF = "application/pdf"
+    # ZIP = "application/zip"
     # GRAPHQL = "application/graphql"
 
     # Multipart
@@ -24,11 +24,11 @@ class ContentType(Enum):
     # BYTE_RANGES = "multipart/byteranges"
 
     # Image
-    JPEG = "image/jpeg"
-    PNG = "image/png"
-    GIF = "image/gif"
-    WEBP = "image/webp"
-    SVG = "image/svg+xml"
+    # JPEG = "image/jpeg"
+    # PNG = "image/png"
+    # GIF = "image/gif"
+    # WEBP = "image/webp"
+    # SVG = "image/svg+xml"
 
     # # Audio
     # MPEG_AUDIO = "audio/mpeg"
