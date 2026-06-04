@@ -94,12 +94,12 @@ class HTTPServer(TCPServer):
             # TODO: headers should be case insensitive
             content_length = request.headers.get("Content-Length", None)
 
-            if content_length is not None:
+            if content_length is not None:  # "Content-Length" is present
                 try:
                     content_length = int(content_length)
-                except ValueError:
+                except ValueError:  # can'0t conver to integer, like empty string
                     raise InvalidContentLength(content_length=content_length)
-                else:
+                else:  # can convert to string, but still invalid
                     if content_length < 0:
                         raise InvalidContentLength(content_length=content_length)
             else:
