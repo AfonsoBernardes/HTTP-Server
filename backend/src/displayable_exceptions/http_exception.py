@@ -9,6 +9,7 @@ class DisplayableException(Exception):
         self.message = f"{message}: {self.exception_id}"
         super().__init__(self.message)
 
+
 class HTTPServerException(DisplayableException):
     status_code: HTTPResponseStatusCode
 
