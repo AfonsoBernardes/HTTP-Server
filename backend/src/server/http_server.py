@@ -123,8 +123,8 @@ class HTTPServer(TCPServer):
             else:
                 response.set_status_code(HTTPResponseStatusCode.HTTP_404)
 
-        except HTTPServerException as e:
-            pass
+        except HTTPServerException as http_exception:
+            response.set_status_code(http_exception.status_code)
 
         finally:
             response.send_headers()
