@@ -29,5 +29,5 @@ class InvalidContentLength(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
     def __init__(self, content_length: Optional[Any]):
-        content_length_string = f": {content_length!r}" if content_length is not None else ""
+        content_length_string = f": {content_length!r}" if content_length else ""
         super().__init__(f"'Content-Length'{content_length_string} is not a valid positive integer")
