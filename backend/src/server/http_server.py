@@ -29,9 +29,7 @@ class HTTPServer(TCPServer):
         if prefix:
             if prefix in self.prefixed_routers:
                 raise DuplicateRouterPrefix(prefix=prefix)
-
             self.prefixed_routers[prefix] = router
-
         else:
             self.free_routers.append(router)
 
