@@ -1,4 +1,4 @@
-from displayable_exceptions.http_exception import HTTPServerException, DisplayableException
+from displayable_exceptions.http_exception import DisplayableException, HTTPServerException
 from request.schema import HTTPRequestMethod
 from response.schema import HTTPResponseStatusCode
 
