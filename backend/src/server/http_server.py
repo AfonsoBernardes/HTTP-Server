@@ -97,7 +97,7 @@ class HTTPServer(TCPServer):
             if content_length is not None:  # "Content-Length" is present
                 try:
                     content_length = int(content_length)
-                except ValueError:  # can'0t conver to integer, like empty string
+                except ValueError:  # can't conver to integer, like empty string
                     raise InvalidContentLength(content_length=content_length)
                 else:  # can convert to string, but still invalid
                     if content_length < 0:
