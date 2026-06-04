@@ -1,6 +1,8 @@
+import logging
 from socket import socket
 from typing import Callable, Dict, List, Optional
 
+from api.schema import ContentType
 from displayable_exceptions.http_exception import HTTPServerException
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -11,6 +13,8 @@ from router.http_router import HTTPRouter
 from server.exceptions import InvalidBodyLength, InvalidContentLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
+
+logger = logging.getLogger(__name__)
 
 class HTTPServer(TCPServer):
     def __init__(self):
@@ -88,13 +92,18 @@ class HTTPServer(TCPServer):
             #         body += chunk_data
 
             # TODO: headers should be case insensitive
-            try:
-                content_length = int(request.headers.get("Content-Length", 0))
-            except ValueError:
-                raise InvalidContentLength(content_length=None)
+            content_length = request.headers.get("Content-Length", None)
 
-            if content_length < 0:
-                raise InvalidContentLength(content_length=content_length)
+            if content_length is not None:
+                try:
+                    content_length = int(content_length)
+                except ValueError:
+                    raise InvalidContentLength(content_length=content_length)
+                else:
+                    if content_length < 0:
+                        raise InvalidContentLength(content_length=content_length)
+            else:
+                content_length = 0
 
             while len(body) < content_length:
                 chunk_data = client_connection.recv(1024)
@@ -124,7 +133,9 @@ class HTTPServer(TCPServer):
                 response.set_status_code(HTTPResponseStatusCode.HTTP_404)
 
         except HTTPServerException as http_exception:
+            logger.error(http_exception.message)
             response.set_status_code(http_exception.status_code)
+            response.set_body({"error": http_exception.message}, content_type=ContentType.JSON)
 
         finally:
             response.send_headers()
