@@ -1,7 +1,5 @@
 from enum import IntEnum
 
-from response.exceptions import InvalidHTTPStatusCode
-
 HTTP_STATUS_MESSAGES = {
     100: "Continue",
     101: "Switching Protocols",
@@ -143,10 +141,7 @@ class HTTPResponseStatusCode(IntEnum):
 
     @property
     def status_message(self):
-        try:
-            status_message = HTTP_STATUS_MESSAGES[self.value]
-        except KeyError:
-            raise InvalidHTTPStatusCode(self.value)
+        status_message = HTTP_STATUS_MESSAGES[self.value]
         return status_message
 
     def __str__(self):
