@@ -1,13 +1,18 @@
-from displayable_exceptions.displayable_exception import DisplayableException
+from displayable_exceptions.http_exception import DisplayableException, HTTPServerException
 from request.schema import HTTPRequestMethod
+from response.schema import HTTPResponseStatusCode
 
 
-class URLNotFound(DisplayableException):
+class URLNotFound(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_404
+
     def __init__(self, url: str):
         super().__init__(f"URL {url!r} not found")
 
 
-class HandlerNotFound(DisplayableException):
+class HandlerNotFound(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_405
+
     def __init__(self, url: str, method: HTTPRequestMethod):
         super().__init__(f"no handler found for {method.value!r} {url!r}")
 

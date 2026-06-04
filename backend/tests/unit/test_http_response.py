@@ -16,6 +16,15 @@ from server.schema import HTTPProtocol
 
 
 class TestResponse:
+    @pytest.mark.asyncio
+    async def test_should_create_response(self):
+        fake_connection = FakeSocket([])
+
+        response = HTTPResponse(fake_connection)
+
+        assert_equal(response.client_connection, fake_connection)
+        assert_equal(response.headers, {"Server": "Afonso's Server"})
+
     @pytest.mark.parametrize(
         "http_protocol",
         [
@@ -23,10 +32,11 @@ class TestResponse:
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_create_response(self, http_protocol: HTTPProtocol):
+    async def test_should_set_protocol(self, http_protocol: HTTPProtocol):
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, http_protocol)
+        response = HTTPResponse(fake_connection)
+        response.set_protocol(http_protocol)
 
         assert_equal(response.client_connection, fake_connection)
         assert_equal(response.protocol, http_protocol)
@@ -42,11 +52,10 @@ class TestResponse:
     async def test_should_set_status_code(self, status_code: HTTPResponseStatusCode):
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+        response = HTTPResponse(fake_connection)
         response.set_status_code(status_code)
 
         assert_equal(response.client_connection, fake_connection)
-        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(response.headers, {"Server": "Afonso's Server"})
         assert_equal(response.status_code, status_code)
 
@@ -63,11 +72,10 @@ class TestResponseHeaders:
     async def test_should_set_headers(self, extra_headers: Optional[Dict[str, str]]):
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+        response = HTTPResponse(fake_connection)
         response.set_headers(extra_headers)
 
         assert_equal(response.client_connection, fake_connection)
-        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
         assert_in("Server", response.headers)
         assert_in("Date", response.headers)
 
@@ -88,10 +96,9 @@ class TestResponseHeaders:
     async def test_should_fail_to_set_invalid_headers(self, extra_headers: Optional[Dict[str, str]]):
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+        response = HTTPResponse(fake_connection)
 
         assert_equal(response.client_connection, fake_connection)
-        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
         assert_in("Server", response.headers)
 
         with assert_raises(InvalidResponseHeader, "invalid response header"):
@@ -111,11 +118,10 @@ class TestResponseHeaders:
         mock_datetime.now.return_value = datetime(2026, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+        response = HTTPResponse(fake_connection)
         response.set_headers(extra_headers)
 
         assert_equal(response.client_connection, fake_connection)
-        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
         assert_in("Server", response.headers)
         assert_in("Date", response.headers)
 
@@ -169,10 +175,9 @@ class TestResponseBody:
     async def test_should_transform_body(self, body, content_type: ContentType, expected_body_string: str):
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+        response = HTTPResponse(fake_connection)
 
         assert_equal(response.client_connection, fake_connection)
-        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
         assert_in("Server", response.headers)
 
         body_string = response._transform_body(body=body, content_type=content_type)
@@ -205,10 +210,9 @@ class TestResponseBody:
     async def test_should_set_body(self, body, content_type: ContentType, expected_body_string: str):
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+        response = HTTPResponse(fake_connection)
 
         assert_equal(response.client_connection, fake_connection)
-        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
         assert_in("Server", response.headers)
 
         response.set_body(body=body, content_type=content_type)
@@ -219,10 +223,9 @@ class TestResponseBody:
     async def test_should_get_body(self):
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+        response = HTTPResponse(fake_connection)
 
         assert_equal(response.client_connection, fake_connection)
-        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
         assert_in("Server", response.headers)
 
         response.set_body(body="Test body", content_type=ContentType.PLAIN)
@@ -242,10 +245,9 @@ class TestResponseBody:
     async def test_fail_to_set_body_with_wrong_content_type(self, body, content_type: ContentType):
         fake_connection = FakeSocket([])
 
-        response = HTTPResponse(fake_connection, HTTPProtocol.HTTP_1_1)
+        response = HTTPResponse(fake_connection)
 
         assert_equal(response.client_connection, fake_connection)
-        assert_equal(response.protocol, HTTPProtocol.HTTP_1_1)
         assert_in("Server", response.headers)
 
         with assert_raises(InvalidBody, f"body '{body}' cannot be serialized as '{content_type.value}'"):
