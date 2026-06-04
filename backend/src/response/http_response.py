@@ -15,11 +15,13 @@ class HTTPResponse:
     headers: Dict[str, str]
     body: str
 
-    def __init__(self, client_connection: socket, http_protocol: HTTPProtocol):
+    def __init__(self, client_connection: socket):
         self.client_connection = client_connection
-        self.protocol = http_protocol
         self.headers = {"Server": "Afonso's Server"}
         self.body = ""
+
+    def set_protocol(self, protocol: HTTPProtocol):
+        self.protocol = protocol
 
     def set_status_code(self, status_code: HTTPResponseStatusCode):
         self.status_code = status_code
