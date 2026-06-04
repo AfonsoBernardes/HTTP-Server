@@ -1,9 +1,9 @@
 from socket import socket
 from typing import Callable, Dict, List, Optional
 
+from displayable_exceptions.http_exception import HTTPServerException
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
-from response.exceptions import InvalidBody
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
 from router.exceptions import DuplicateRouter, DuplicateRouterPrefix
@@ -123,7 +123,7 @@ class HTTPServer(TCPServer):
             else:
                 response.set_status_code(HTTPResponseStatusCode.HTTP_404)
 
-        except Exception as e:
+        except HTTPServerException as e:
             pass
 
         finally:
