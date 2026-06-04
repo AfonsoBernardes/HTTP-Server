@@ -1,7 +1,7 @@
 from typing import Any
 
 from api.schema import ContentType
-from displayable_exceptions.displayable_exception import DisplayableException
+from displayable_exceptions.http_exception import DisplayableException
 
 
 class InvalidHTTPStatusCode(DisplayableException):

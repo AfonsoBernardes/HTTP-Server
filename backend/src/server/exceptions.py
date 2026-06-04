@@ -1,6 +1,6 @@
 from typing import Any, Optional
 
-from displayable_exceptions.displayable_exception import DisplayableException
+from displayable_exceptions.http_exception import DisplayableException
 
 
 class InvalidDecoding(DisplayableException):
