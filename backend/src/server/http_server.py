@@ -49,8 +49,6 @@ class HTTPServer(TCPServer):
 
         return None
 
-    # TODO: If these exceptions are raised, nothing is sent to the client and the connection hangs.
-    #   How can I handle this? Should I do a top-level try/except block? If so, response should be created before this block so I can set_status_code if anything fails.
     def handle_request(self, client_connection: socket) -> HTTPResponse:
         response = HTTPResponse(client_connection=client_connection)
         try:
