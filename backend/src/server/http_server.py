@@ -48,82 +48,86 @@ class HTTPServer(TCPServer):
     # TODO: If these exceptions are raised, nothing is sent to the client and the connection hangs.
     #   How can I handle this? Should I do a top-level try/except block? If so, response should be created before this block so I can set_status_code if anything fails.
     def handle_request(self, client_connection: socket) -> HTTPResponse:
-        # data might arrive in chunks loop makes sure all headers are present in the request
-        raw_data = b""
-        while b"\r\n\r\n" not in raw_data:
-            # receive data from the socket. The return value is a bytes object representing the data received.
-            # maximum amount of data to be received at once is specified by bufsize.
-            chunk_data = client_connection.recv(1024)
-            if not chunk_data:
-                break
-            raw_data += chunk_data
-
+        response = HTTPResponse(client_connection=client_connection)
         try:
-            headers, body = raw_data.split(b"\r\n\r\n", maxsplit=1)
-            headers = headers.decode(encoding="UTF-8", errors="strict")  # decode only headers
-        except UnicodeDecodeError:
-            raise InvalidDecoding()
-        except ValueError:
-            raise InvalidRequest()
+            # data might arrive in chunks loop makes sure all headers are present in the request
+            raw_data = b""
+            while b"\r\n\r\n" not in raw_data:
+                # receive data from the socket. The return value is a bytes object representing the data received.
+                # maximum amount of data to be received at once is specified by bufsize.
+                chunk_data = client_connection.recv(1024)
+                if not chunk_data:
+                    break
+                raw_data += chunk_data
 
-        method, url, protocol, headers = parse_headers(request_headers=headers)
-        request = HTTPRequest(method, url, protocol, headers)
-
-        # since data might arrive in chunks, parsing the body requires us to either:
-        # 1. receive a zero-length chunk Transfer-Encoding: Chunked
-        # 2. know how long it is via Content-Length
-        # 3. if none is present, Bad Request
-        # TODO: Couldn't really figure out about "when the request ends, client will close the connection" since if that happens, there is no way for me to send the response
-
-        # TODO: I've seen that transfer-encoding is not universally supported in the request.
-        #   transfer_encoding = headers.get("Transfer-Encoding", None)
-        #   if transfer_encoding and transfer_encoding.lower() == "chunked":
-        #     while True:
-        #         chunk_data = client_connection.recv(1024)
-        #         if len(chunk_data) == 0:
-        #             break
-        #         body += chunk_data
-
-        try:
-            content_length = int(request.headers.get("Content-Length", 0))
-        except ValueError:
-            raise InvalidContentLength(content_length=None)
-
-        if content_length < 0:
-            raise InvalidContentLength(content_length=content_length)
-
-        while len(body) < content_length:
-            chunk_data = client_connection.recv(1024)
-            if not chunk_data:
-                break
-            body += chunk_data
-
-        if len(body) < content_length:
-            raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
-        else:
-            body = body[:content_length] if content_length > 0 else b""
-
-        try:
-            body = body.decode(encoding="UTF-8", errors="strict") if body else None
-        except UnicodeDecodeError:
-            raise InvalidDecoding()
-        else:
-            request.parse_body(body)
-
-        response = HTTPResponse(client_connection=client_connection, http_protocol=request.protocol)
-        request_handler = self.resolve_route(url=url, method=method)
-
-        if request_handler:
             try:
+                headers, body = raw_data.split(b"\r\n\r\n", maxsplit=1)
+                headers = headers.decode(encoding="UTF-8", errors="strict")  # decode only headers
+            except UnicodeDecodeError:
+                raise InvalidDecoding()
+            except ValueError:
+                raise InvalidRequest()
+
+            method, url, protocol, headers = parse_headers(request_headers=headers)
+            request = HTTPRequest(method, url, protocol, headers)
+            response.set_protocol(protocol)
+
+            # since data might arrive in chunks, parsing the body requires us to either:
+            # 1. receive a zero-length chunk Transfer-Encoding: Chunked
+            # 2. know how long it is via Content-Length
+            # 3. if none is present, Bad Request
+            # TODO: Couldn't really figure out about "when the request ends, client will close the connection" since if that happens, there is no way for me to send the response
+
+            # TODO: I've seen that transfer-encoding is not universally supported in the request.
+            #   transfer_encoding = headers.get("Transfer-Encoding", None)
+            #   if transfer_encoding and transfer_encoding.lower() == "chunked":
+            #     while True:
+            #         chunk_data = client_connection.recv(1024)
+            #         if len(chunk_data) == 0:
+            #             break
+            #         body += chunk_data
+
+            # TODO: headers should be case insensitive
+            try:
+                content_length = int(request.headers.get("Content-Length", 0))
+            except ValueError:
+                raise InvalidContentLength(content_length=None)
+
+            if content_length < 0:
+                raise InvalidContentLength(content_length=content_length)
+
+            while len(body) < content_length:
+                chunk_data = client_connection.recv(1024)
+                if not chunk_data:
+                    break
+                body += chunk_data
+
+            if len(body) < content_length:
+                raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+            else:
+                body = body[:content_length] if content_length > 0 else b""
+
+            try:
+                body = body.decode(encoding="UTF-8", errors="strict") if body else None
+            except UnicodeDecodeError:
+                raise InvalidDecoding()
+            else:
+                request.parse_body(body)
+
+            request_handler = self.resolve_route(url=url, method=method)
+
+            if request_handler:
                 body = request_handler()
                 response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
                 response.set_body(body=body.data, content_type=body.content_type)
-            except InvalidBody:
-                response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_500)
-        else:
-            response.set_status_code(HTTPResponseStatusCode.HTTP_404)
+            else:
+                response.set_status_code(HTTPResponseStatusCode.HTTP_404)
 
-        response.send_headers()
-        response.send_body()
+        except Exception as e:
+            pass
+
+        finally:
+            response.send_headers()
+            response.send_body()
 
         return response
