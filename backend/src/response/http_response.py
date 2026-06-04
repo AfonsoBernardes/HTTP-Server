@@ -17,7 +17,8 @@ class HTTPResponse:
 
     def __init__(self, client_connection: socket):
         self.client_connection = client_connection
-        self.protocol = HTTPProtocol.HTTP_1_1  # default for sending headers if exception is raised before protocol is set
+        # default protocol for sending headers if exception is raised before protocol is set
+        self.protocol = HTTPProtocol.HTTP_1_1
         self.headers = {"Server": "Afonso's Server"}
         self.body = ""
 

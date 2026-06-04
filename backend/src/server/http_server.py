@@ -13,8 +13,8 @@ from router.http_router import HTTPRouter
 from server.exceptions import InvalidBodyLength, InvalidContentLength, InvalidDecoding, InvalidRequest
 from server.tcp_server import TCPServer
 
-
 logger = logging.getLogger(__name__)
+
 
 class HTTPServer(TCPServer):
     def __init__(self):
