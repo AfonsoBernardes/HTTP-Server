@@ -100,7 +100,7 @@ class HTTPServer(TCPServer):
                 else:  # can convert to integer, but still invalid
                     if content_length < 0:
                         raise InvalidContentLength(content_length=content_length)
-            else:
+            else:  # no content-length makes it safe to assume there is no body
                 content_length = 0
 
             while len(body) < content_length:
