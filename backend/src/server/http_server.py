@@ -72,6 +72,8 @@ class HTTPServer(TCPServer):
             request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
 
+            case_insensitive_headers = {key.lower(): value for key, value in request.headers.items()}
+
             # since data might arrive in chunks, parsing the body requires us to either:
             # 1. receive a zero-length chunk Transfer-Encoding: Chunked
             # 2. know how long it is via Content-Length
@@ -88,14 +90,14 @@ class HTTPServer(TCPServer):
             #         body += chunk_data
 
             # TODO: headers should be case insensitive
-            content_length = request.headers.get("Content-Length", None)
+            content_length = case_insensitive_headers.get("content-length", None)
 
             if content_length is not None:  # "Content-Length" is present
                 try:
                     content_length = int(content_length)
                 except ValueError:  # can't conver to integer, like empty string
                     raise InvalidContentLength(content_length=content_length)
-                else:  # can convert to string, but still invalid
+                else:  # can convert to integer, but still invalid
                     if content_length < 0:
                         raise InvalidContentLength(content_length=content_length)
             else:
