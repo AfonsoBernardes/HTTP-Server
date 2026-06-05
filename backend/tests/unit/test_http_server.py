@@ -1,5 +1,4 @@
 import logging
-from http import HTTPStatus
 from typing import Optional, Any
 
 import pytest
@@ -14,11 +13,36 @@ from server.http_server import HTTPServer
 
 
 class TestServerHeaderHandling:
+    @pytest.mark.parametrize(
+        "request_headers",
+        [
+            b"POST / HTTP/1.1\r\nContent-Length: 1\r\n\r\nA",
+            b"PUT / HTTP/1.1\r\ncontent-length: 0\r\n\r\n"
+            b"PUT / HTTP/1.1\r\nCONTENT-LENGTH: 2\r\n\r\nAB"
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_should_handle_valid_request(self):
+    async def test_should_handle_valid_request_with_case_insensitive_headers(self, request_headers: bytes):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
-            b"GET / HTTP/1.1\r\n\r\n"
+            request_headers
+        ])
+
+        assert http_server.handle_request(fake_connection)
+
+    @pytest.mark.parametrize(
+        "request_headers",
+        [
+            b"POST / HTTP/1.1\r\n\r\n",
+            b"PUT / HTTP/1.1\r\ncontent: 1\r\n\r\nBody ignored"
+            b"PUT / HTTP/1.1\r\nLENGTH: A\r\n\r\n"
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_handle_valid_request_without_content_length_header(self, request_headers: bytes):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            request_headers
         ])
 
         assert http_server.handle_request(fake_connection)
