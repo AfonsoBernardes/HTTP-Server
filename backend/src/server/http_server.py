@@ -76,6 +76,7 @@ class HTTPServer(TCPServer):
             except ValueError:
                 raise InvalidRequest()
 
+            # TODO: Review how we parse headers with whitespaces
             method, url, protocol, headers = parse_headers(request_headers=headers)
             request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
@@ -90,6 +91,9 @@ class HTTPServer(TCPServer):
             transfer_encoding = case_insensitive_headers.get("transfer-encoding", None)
             content_length = case_insensitive_headers.get("content-length", None)
 
+            # TODO: Wrong Chunked Parsing:
+            #  1. Need to parse each chunk as declared on length prefix in hex
+            #  2. Transfer-Encoding can be a list where 'chunked' must be the last element
             if transfer_encoding is not None:
                 if transfer_encoding.lower() == "chunked":
                     while True:
@@ -102,6 +106,9 @@ class HTTPServer(TCPServer):
                 else:
                     raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
 
+            # TODO: Content-Length Improvements:
+            #  1. Several 'Content-Length' can be sent, should '400 Bad Request' if they differ.
+            #  2. Content-Length overflow, set maximum body size.
             elif content_length is not None:  # "Content-Length" is present
                 try:
                     content_length = int(content_length)
@@ -111,16 +118,19 @@ class HTTPServer(TCPServer):
                     if content_length < 0:
                         raise InvalidContentLength(content_length=content_length)
 
-                while len(body) < content_length:
-                    chunk_data = client_connection.recv(1024)
-                    if not chunk_data:
-                        break
-                    body += chunk_data
-
-                if len(body) < content_length:
-                    raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+                if content_length == 0:
+                    body = b""
                 else:
-                    body = body[:content_length] if content_length > 0 else b""
+                    while len(body) < content_length:
+                        chunk_data = client_connection.recv(1024)
+                        if not chunk_data:
+                            break
+                        body += chunk_data
+
+                    if len(body) < content_length:
+                        raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+                    else:
+                        body = body[:content_length] if content_length > 0 else b""
 
             elif request.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
                 raise UnspecifiedBodyLength(method=request.method)
