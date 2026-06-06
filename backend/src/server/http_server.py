@@ -10,7 +10,8 @@ from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
 from router.exceptions import DuplicateRouter, DuplicateRouterPrefix
 from router.http_router import HTTPRouter
-from server.exceptions import InvalidBodyLength, InvalidContentLength, InvalidDecoding, InvalidRequest
+from server.exceptions import InvalidBodyLength, InvalidContentLength, InvalidDecoding, InvalidRequest, \
+    InvalidTransferEncoding, UnsupportedTransferEncoding, UnspecifiedBodyLength
 from server.tcp_server import TCPServer
 
 logger = logging.getLogger(__name__)
@@ -77,42 +78,45 @@ class HTTPServer(TCPServer):
             # since data might arrive in chunks, parsing the body requires us to either:
             # 1. receive a zero-length chunk Transfer-Encoding: Chunked
             # 2. know how long it is via Content-Length
-            # 3. if none is present, Bad Request
-            # TODO: Couldn't really figure out about "when the request ends, client will close the connection" since if that happens, there is no way for me to send the response
+            # 3. if none is present, assume no body
 
-            # TODO: I've seen that transfer-encoding is not universally supported in the request.
-            #   transfer_encoding = headers.get("Transfer-Encoding", None)
-            #   if transfer_encoding and transfer_encoding.lower() == "chunked":
-            #     while True:
-            #         chunk_data = client_connection.recv(1024)
-            #         if len(chunk_data) == 0:
-            #             break
-            #         body += chunk_data
-
-            # TODO: headers should be case insensitive
+            transfer_encoding = case_insensitive_headers.get("transfer-encoding", None)
             content_length = case_insensitive_headers.get("content-length", None)
 
-            if content_length is not None:  # "Content-Length" is present
+            if transfer_encoding is not None:
+                if transfer_encoding.lower() == "chunked":
+                    while True:
+                        chunk_data = client_connection.recv(1024)
+                        if len(chunk_data) == 0:
+                            break
+                        body += chunk_data
+                elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
+                    raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
+                else:
+                    raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
+
+            elif content_length is not None:  # "Content-Length" is present
                 try:
                     content_length = int(content_length)
                 except ValueError:  # can't conver to integer, like empty string
                     raise InvalidContentLength(content_length=content_length)
-                else:  # can convert to integer, but still invalid
+                else:  # can convert to integer but still invalid like negative number
                     if content_length < 0:
                         raise InvalidContentLength(content_length=content_length)
-            else:  # no content-length makes it safe to assume there is no body
-                content_length = 0
 
-            while len(body) < content_length:
-                chunk_data = client_connection.recv(1024)
-                if not chunk_data:
-                    break
-                body += chunk_data
+                while len(body) < content_length:
+                    chunk_data = client_connection.recv(1024)
+                    if not chunk_data:
+                        break
+                    body += chunk_data
 
-            if len(body) < content_length:
-                raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
-            else:
-                body = body[:content_length] if content_length > 0 else b""
+                if len(body) < content_length:
+                    raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+                else:
+                    body = body[:content_length] if content_length > 0 else b""
+
+            elif request.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
+                raise UnspecifiedBodyLength(method=request.method)
 
             try:
                 body = body.decode(encoding="UTF-8", errors="strict") if body else None
