@@ -9,7 +9,7 @@ from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
 from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength, InvalidContentLength, \
-    UnspecifiedBodyLength
+    UnspecifiedBodyLength, UnsupportedTransferEncoding, InvalidTransferEncoding
 from server.http_server import HTTPServer
 
 
@@ -102,6 +102,48 @@ class TestServerHeaderHandling:
 
         assert_equal(response.status_code, InvalidDecoding.status_code)
         assert_in(InvalidDecoding().base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "request_line, unsupported_transfer_encoding",
+        [
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: compress\r\n\r\n", "compress"),
+            (b"PUT / HTTP/1.1\r\ntransfer-encoding: deflate\r\n\r\n", "deflate"),
+            (b"PATCH / HTTP/1.1\r\nTRANSFER-ENCODING: gzip\r\n\r\n", "gzip"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_unsupported_transfer_encoding(self, caplog, request_line: bytes, unsupported_transfer_encoding: str):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            request_line,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, UnsupportedTransferEncoding.status_code)
+        assert_in(UnsupportedTransferEncoding(transfer_encoding=unsupported_transfer_encoding).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "request_line, invalid_transfer_encoding",
+        [
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: \r\n\r\n", ""),
+            (b"PUT / HTTP/1.1\r\nTransfer-Encoding: ABC\r\n\r\n", "ABC"),
+            (b"PATCH / HTTP/1.1\r\nTransfer-Encoding: 1\r\n\r\n", "1"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_transfer_encoding(self, caplog, request_line: bytes, invalid_transfer_encoding: str):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            request_line,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidTransferEncoding.status_code)
+        assert_in(InvalidTransferEncoding(transfer_encoding=invalid_transfer_encoding).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "headers, invalid_content_length",
