@@ -63,6 +63,7 @@ class TestServerHeaderHandling:
         [
             b"GET / HTTP/1.1",
             b"GET / HTTP/1.1\r\n",
+            b"GET / HTTP/1.1\r\nHeader: Value\r\n"
         ],
     )
     @pytest.mark.asyncio
