@@ -3,10 +3,18 @@ from typing import Dict, Optional, Tuple
 from request.exceptions import (
     InvalidHTTPHeaders,
     InvalidHTTPMethod,
-    InvalidHTTPProtocol,
+    InvalidHTTPProtocol, DuplicateHTTPHeader,
 )
 from request.schema import HTTPRequestMethod
 from server.schema import HTTPProtocol
+
+SINGLE_VALUE_HEADERS = {
+    "content-length",
+    "content-type",
+    "host",
+    "authorization",
+    "content-encoding",
+}
 
 
 def parse_headers(request_headers: str) -> Tuple[
@@ -25,9 +33,25 @@ def parse_headers(request_headers: str) -> Tuple[
     for header in request_headers:
         try:
             key, value = header.split(": ", maxsplit=1)
-            headers[key] = value
+
+            key = key.lower()
+            value_list = [value.strip() for value in value.split(",")]
+
+            for value in value_list:
+                if key not in headers:
+                    headers[key] = [value]
+                else:
+                    headers[key].append(value)
+
         except ValueError:
             raise InvalidHTTPHeaders()
+
+    for key, value in headers.items():
+        if key in SINGLE_VALUE_HEADERS and len(value) > 1:
+            raise DuplicateHTTPHeader(header_key=key, num_values=len(value))
+        elif len(value) == 1:
+            headers[key] = value[0]
+
 
     try:
         method = HTTPRequestMethod(request_line[0])
