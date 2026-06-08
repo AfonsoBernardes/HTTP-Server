@@ -1,3 +1,5 @@
+from typing import List
+
 from displayable_exceptions.http_exception import HTTPServerException
 from request.schema import HTTPRequestMethod
 from response.schema import HTTPResponseStatusCode
@@ -28,4 +30,13 @@ class InvalidHTTPHeaders(HTTPServerException):
     def __init__(self):
         super().__init__(
             f"invalid HTTP headers: make sure headers are key-value pairs, separated by ': ' and a line breaker"
+        )
+
+
+class DuplicateHTTPHeader(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, header_key: str, num_values: int):
+        super().__init__(
+            f"duplicate HTTP header: expected one value for {header_key!r}, got {num_values!r}]"
         )
