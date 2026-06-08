@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 
 from request.exceptions import (
     DuplicateHTTPHeader,
@@ -72,7 +72,7 @@ class HTTPRequest:
     method: HTTPRequestMethod
     url: str
     protocol: HTTPProtocol
-    headers: Dict[str, str]
+    headers: Dict[str, List[str]]
     body: Optional[str]
 
     def __init__(self, method, url, protocol, headers):
