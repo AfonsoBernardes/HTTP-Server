@@ -9,7 +9,7 @@ from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
 from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength, InvalidContentLength, \
-    UnspecifiedBodyLength, UnsupportedTransferEncoding, InvalidTransferEncoding
+    UnspecifiedBodyLength, UnsupportedTransferEncoding, InvalidTransferEncoding, BodyTooLarge
 from server.http_server import HTTPServer
 
 
@@ -166,6 +166,40 @@ class TestServerHeaderHandling:
 
         assert_equal(response.status_code, InvalidContentLength.status_code)
         assert_in(InvalidContentLength(invalid_content_length).base_message, caplog.text)
+
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_multiple_different_content_lengths(self, caplog):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"GET / HTTP/1.1\r\nContent-Length: 0\r\nContent-Length: 1\r\n\r\n",
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+            assert False
+
+        # assert_equal(response.status_code, BodyTooLarge.status_code)
+        # assert_in(BodyTooLarge(max_body_size=1024*1024, content_length=invalid_content_length).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "headers, invalid_content_length",
+        [
+            (b"GET / HTTP/1.1\r\nContent-Length: 9999999\r\n\r\n", 9999999),
+            (b"GET / HTTP/1.1\r\nContent-Length: 1048577\r\n\r\n", 1048577)
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_too_large_content_length(self, caplog, headers: bytes, invalid_content_length: Any):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            headers,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, BodyTooLarge.status_code)
+        assert_in(BodyTooLarge(max_body_size=1024*1024, content_length=invalid_content_length).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, request_method",

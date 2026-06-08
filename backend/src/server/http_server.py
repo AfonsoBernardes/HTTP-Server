@@ -17,7 +17,7 @@ from server.exceptions import (
     InvalidRequest,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding,
+    UnsupportedTransferEncoding, BodyTooLarge,
 )
 from server.tcp_server import TCPServer
 
@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 class HTTPServer(TCPServer):
+    MAX_BODY_SIZE = 1 * 1024 * 1024
+
     def __init__(self):
         super().__init__()
         self.prefixed_routers: Dict[str, HTTPRouter] = {}
@@ -108,7 +110,6 @@ class HTTPServer(TCPServer):
 
             # TODO: Content-Length Improvements:
             #  1. Several 'Content-Length' can be sent, should '400 Bad Request' if they differ.
-            #  2. Content-Length overflow, set maximum body size.
             elif content_length is not None:  # "Content-Length" is present
                 try:
                     content_length = int(content_length)
@@ -117,6 +118,8 @@ class HTTPServer(TCPServer):
                 else:  # can convert to integer but still invalid like negative number
                     if content_length < 0:
                         raise InvalidContentLength(content_length=content_length)
+                    elif content_length > self.MAX_BODY_SIZE:
+                        raise BodyTooLarge(max_body_size=self.MAX_BODY_SIZE, content_length=content_length)
 
                 if content_length == 0:
                     body = b""
