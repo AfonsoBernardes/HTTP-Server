@@ -1,7 +1,7 @@
 import pytest
 from asserts import assert_equal, assert_raises
 
-from request.exceptions import InvalidHTTPMethod, InvalidHTTPProtocol, InvalidHTTPHeaders
+from request.exceptions import InvalidHTTPMethod, InvalidHTTPProtocol, InvalidHTTPHeaders, DuplicateHTTPHeader
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
 from server.schema import HTTPProtocol
@@ -107,6 +107,24 @@ class TestRequestHeadersParsing:
         assert_equal(request.url, "/")
         assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, expected_headers)
+
+    @pytest.mark.parametrize(
+        "request_headers, header_key, num_values",
+        [
+            ("Content-Type: Test Server\r\nContent-Type: text/html", "content_type", 2),
+            ("Content-Length: 0\r\ncontent-length: 0", "content_length", 2),
+            ("Host: Host 1\r\nhost: Host 2\r\nHOST: Host3", "host", 3),
+            ("AUTHORIZATION: BearerXYZ\r\nAuthorization: BearerZYX", "authorization", 2),
+            ("Content-Encoding: gzip, compressed,deflate", "content_encoding", 3),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_disallowed_duplicate_request_headers(self, request_headers: str, header_key: str, num_values: int):
+        data = f'GET / HTTP/1.1\r\n{request_headers}'
+
+        error_message = f"duplicate HTTP header: expected one value for {header_key!r}, got {num_values!r}]"
+        with assert_raises(DuplicateHTTPHeader, error_message):
+            parse_headers(data)
 
     @pytest.mark.parametrize(
         "invalid_request_headers",
