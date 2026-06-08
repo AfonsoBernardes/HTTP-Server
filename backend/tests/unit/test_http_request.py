@@ -101,7 +101,6 @@ class TestRequestHeadersParsing:
 
         method, url, protocol, headers = parse_headers(data)
         request = HTTPRequest(method, url, protocol, headers)
-        print(request.headers)
 
         assert_equal(request.method, HTTPRequestMethod.GET)
         assert_equal(request.url, "/")
