@@ -1,9 +1,10 @@
 from typing import Dict, Optional, Tuple
 
 from request.exceptions import (
+    DuplicateHTTPHeader,
     InvalidHTTPHeaders,
     InvalidHTTPMethod,
-    InvalidHTTPProtocol, DuplicateHTTPHeader,
+    InvalidHTTPProtocol,
 )
 from request.schema import HTTPRequestMethod
 from server.schema import HTTPProtocol
@@ -51,7 +52,6 @@ def parse_headers(request_headers: str) -> Tuple[
             raise DuplicateHTTPHeader(header_key=key, num_values=len(value))
         elif len(value) == 1:
             headers[key] = value[0]
-
 
     try:
         method = HTTPRequestMethod(request_line[0])
