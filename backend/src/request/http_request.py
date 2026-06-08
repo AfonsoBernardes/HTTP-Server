@@ -72,7 +72,7 @@ class HTTPRequest:
     method: HTTPRequestMethod
     url: str
     protocol: HTTPProtocol
-    headers: Dict[str, List[str]]
+    headers: Dict[str, str | List[str]]
     body: Optional[str]
 
     def __init__(self, method, url, protocol, headers):
