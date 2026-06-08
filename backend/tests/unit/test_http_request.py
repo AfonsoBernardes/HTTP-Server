@@ -91,8 +91,8 @@ class TestRequestHeadersParsing:
         "request_headers, expected_headers",
         [
             ("", {}),
-            ("Server: Test Server", {"Server": "Test Server"}),
-            ("Server: Test Server\r\nContent-Type: text/html", {"Server": "Test Server", "Content-Type": "text/html"}),
+            ("Server: Test Server", {"server": "Test Server"}),
+            ("Server: Test Server\r\nContent-Type: text/html", {"server": "Test Server", "content-type": "text/html"}),
         ],
     )
     @pytest.mark.asyncio
@@ -101,6 +101,7 @@ class TestRequestHeadersParsing:
 
         method, url, protocol, headers = parse_headers(data)
         request = HTTPRequest(method, url, protocol, headers)
+        print(request.headers)
 
         assert_equal(request.method, HTTPRequestMethod.GET)
         assert_equal(request.url, "/")

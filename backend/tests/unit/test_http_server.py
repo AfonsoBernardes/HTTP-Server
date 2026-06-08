@@ -5,6 +5,7 @@ import pytest
 from asserts import assert_raises, assert_equal, assert_in, assert_is_none, assert_is_instance
 
 from conftest import FakeSocket
+from request.exceptions import DuplicateHTTPHeader
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
@@ -176,10 +177,9 @@ class TestServerHeaderHandling:
 
         with caplog.at_level(logging.ERROR):
             response = http_server.handle_request(fake_connection)
-            assert False
 
-        # assert_equal(response.status_code, BodyTooLarge.status_code)
-        # assert_in(BodyTooLarge(max_body_size=1024*1024, content_length=invalid_content_length).base_message, caplog.text)
+        assert_equal(response.status_code, DuplicateHTTPHeader.status_code)
+        assert_in(DuplicateHTTPHeader(header_key="content-length", num_values=2).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "headers, invalid_content_length",
