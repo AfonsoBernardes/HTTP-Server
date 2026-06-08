@@ -80,18 +80,17 @@ class HTTPServer(TCPServer):
 
             # TODO: Review how we parse headers with whitespaces
             method, url, protocol, headers = parse_headers(request_headers=headers)
-            request = HTTPRequest(method, url, protocol, headers)
+            http_request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
-
-            case_insensitive_headers = {key.lower(): value for key, value in request.headers.items()}
 
             # since data might arrive in chunks, parsing the body requires us to either:
             # 1. receive a zero-length chunk Transfer-Encoding: Chunked
             # 2. know how long it is via Content-Length
             # 3. if none is present, assume no body
 
-            transfer_encoding = case_insensitive_headers.get("transfer-encoding", None)
-            content_length = case_insensitive_headers.get("content-length", None)
+            # keys are already lower case from "parse_headers" function
+            transfer_encoding = http_request.headers.get("transfer-encoding", None)
+            content_length = http_request.headers.get("content-length", None)
 
             # TODO: Wrong Chunked Parsing:
             #  1. Need to parse each chunk as declared on length prefix in hex
@@ -135,15 +134,15 @@ class HTTPServer(TCPServer):
                     else:
                         body = body[:content_length] if content_length > 0 else b""
 
-            elif request.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
-                raise UnspecifiedBodyLength(method=request.method)
+            elif http_request.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
+                raise UnspecifiedBodyLength(method=http_request.method)
 
             try:
                 body = body.decode(encoding="UTF-8", errors="strict") if body else None
             except UnicodeDecodeError:
                 raise InvalidDecoding()
             else:
-                request.parse_body(body)
+                http_request.parse_body(body)
 
             request_handler = self.resolve_route(url=url, method=method)
 
