@@ -43,7 +43,6 @@ def parse_headers(request_headers: str) -> Tuple[
                     headers[key] = [value]
                 else:
                     headers[key].append(value)
-
         except ValueError:
             raise InvalidHTTPHeaders()
 
