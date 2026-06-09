@@ -108,8 +108,6 @@ class HTTPServer(TCPServer):
                 else:
                     raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
 
-            # TODO: Content-Length Improvements:
-            #  1. Several 'Content-Length' can be sent, should '400 Bad Request' if they differ.
             elif content_length is not None:  # "Content-Length" is present
                 try:
                     content_length = int(content_length)
