@@ -10,13 +10,24 @@ from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
 from router.exceptions import DuplicateRouter, DuplicateRouterPrefix
 from router.http_router import HTTPRouter
-from server.exceptions import InvalidBodyLength, InvalidContentLength, InvalidDecoding, InvalidRequest
+from server.exceptions import (
+    BodyTooLarge,
+    InvalidBodyLength,
+    InvalidContentLength,
+    InvalidDecoding,
+    InvalidRequest,
+    InvalidTransferEncoding,
+    UnspecifiedBodyLength,
+    UnsupportedTransferEncoding,
+)
 from server.tcp_server import TCPServer
 
 logger = logging.getLogger(__name__)
 
 
 class HTTPServer(TCPServer):
+    MAX_BODY_SIZE = 1 * 1024 * 1024
+
     def __init__(self):
         super().__init__()
         self.prefixed_routers: Dict[str, HTTPRouter] = {}
@@ -68,65 +79,75 @@ class HTTPServer(TCPServer):
             except ValueError:
                 raise InvalidRequest()
 
+            # TODO: Review how we parse headers with whitespaces
             method, url, protocol, headers = parse_headers(request_headers=headers)
-            request = HTTPRequest(method, url, protocol, headers)
+            http_request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
 
-            case_insensitive_headers = {key.lower(): value for key, value in request.headers.items()}
+            # keys are already lower case from "parse_headers" function
+            transfer_encoding = http_request.headers.get("transfer-encoding", None)
+            content_length = http_request.headers.get("content-length", None)
 
-            # since data might arrive in chunks, parsing the body requires us to either:
-            # 1. receive a zero-length chunk Transfer-Encoding: Chunked
-            # 2. know how long it is via Content-Length
-            # 3. if none is present, Bad Request
-            # TODO: Couldn't really figure out about "when the request ends, client will close the connection" since if that happens, there is no way for me to send the response
+            # TODO: Wrong Chunked Parsing:
+            #  1. Need to parse each chunk as declared on length prefix in hex
+            if transfer_encoding is not None:
+                if len(transfer_encoding) != 1:
+                    raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
 
-            # TODO: I've seen that transfer-encoding is not universally supported in the request.
-            #   transfer_encoding = headers.get("Transfer-Encoding", None)
-            #   if transfer_encoding and transfer_encoding.lower() == "chunked":
-            #     while True:
-            #         chunk_data = client_connection.recv(1024)
-            #         if len(chunk_data) == 0:
-            #             break
-            #         body += chunk_data
+                transfer_encoding = transfer_encoding[0]
+                if transfer_encoding.lower() == "chunked":
+                    while True:
+                        chunk_data = client_connection.recv(1024)
+                        if len(chunk_data) == 0:
+                            break
+                        body += chunk_data
+                elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
+                    raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
+                else:
+                    raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
 
-            # TODO: headers should be case insensitive
-            content_length = case_insensitive_headers.get("content-length", None)
-
-            if content_length is not None:  # "Content-Length" is present
+            elif content_length is not None:  # "Content-Length" is present
+                content_length = content_length[0]
                 try:
-                    content_length = int(content_length)
+                    content_length = int(content_length)  # "Content-Length" should be unique
                 except ValueError:  # can't conver to integer, like empty string
                     raise InvalidContentLength(content_length=content_length)
-                else:  # can convert to integer, but still invalid
+                else:  # can convert to integer but still invalid like negative number
                     if content_length < 0:
                         raise InvalidContentLength(content_length=content_length)
-            else:  # no content-length makes it safe to assume there is no body
-                content_length = 0
+                    elif content_length > self.MAX_BODY_SIZE:
+                        raise BodyTooLarge(max_body_size=self.MAX_BODY_SIZE, content_length=content_length)
 
-            while len(body) < content_length:
-                chunk_data = client_connection.recv(1024)
-                if not chunk_data:
-                    break
-                body += chunk_data
+                if content_length == 0:
+                    body = b""
+                else:
+                    while len(body) < content_length:
+                        chunk_data = client_connection.recv(1024)
+                        if not chunk_data:
+                            break
+                        body += chunk_data
 
-            if len(body) < content_length:
-                raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
-            else:
-                body = body[:content_length] if content_length > 0 else b""
+                    if len(body) < content_length:
+                        raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+                    else:
+                        body = body[:content_length] if content_length > 0 else b""
+
+            elif http_request.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
+                raise UnspecifiedBodyLength(method=http_request.method)
 
             try:
                 body = body.decode(encoding="UTF-8", errors="strict") if body else None
             except UnicodeDecodeError:
                 raise InvalidDecoding()
             else:
-                request.parse_body(body)
+                http_request.parse_body(body)
 
             request_handler = self.resolve_route(url=url, method=method)
 
             if request_handler:
-                body = request_handler()
+                response_body = request_handler()
                 response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
-                response.set_body(body=body.data, content_type=body.content_type)
+                response.set_body(body=response_body.data, content_type=response_body.content_type)
             else:
                 response.set_status_code(HTTPResponseStatusCode.HTTP_404)
 
