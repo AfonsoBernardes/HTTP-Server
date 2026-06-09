@@ -91,9 +91,9 @@ class TestRequestHeadersParsing:
         "request_headers, expected_headers",
         [
             ("", {}),
-            ("Server: Test Server", {"server": "Test Server"}),
-            ("Server: Test Server\r\nContent-Type: text/html", {"server": "Test Server", "content-type": "text/html"}),
-            ("Server: Test Server 1\r\nserver: Test Server 2\r\nContent-Type: text/html", {"server": ["Test Server 1" , "Test Server 2"], "content-type": "text/html"}),
+            ("Server: Test Server", {"server": ["Test Server"]}),
+            ("Server: Test Server\r\nContent-Type: text/html", {"server": ["Test Server"], "content-type": ["text/html"]}),
+            ("Server: Test Server 1\r\nserver: Test Server 2\r\nContent-Type: text/html", {"server": ["Test Server 1" , "Test Server 2"], "content-type": ["text/html"]}),
         ],
     )
     @pytest.mark.asyncio
