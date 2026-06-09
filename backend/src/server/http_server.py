@@ -84,19 +84,17 @@ class HTTPServer(TCPServer):
             http_request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
 
-            # since data might arrive in chunks, parsing the body requires us to either:
-            # 1. receive a zero-length chunk Transfer-Encoding: Chunked
-            # 2. know how long it is via Content-Length
-            # 3. if none is present, assume no body
-
             # keys are already lower case from "parse_headers" function
             transfer_encoding = http_request.headers.get("transfer-encoding", None)
             content_length = http_request.headers.get("content-length", None)
 
             # TODO: Wrong Chunked Parsing:
             #  1. Need to parse each chunk as declared on length prefix in hex
-            #  2. Transfer-Encoding can be a list where 'chunked' must be the last element
             if transfer_encoding is not None:
+                if len(transfer_encoding) != 1:
+                    raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
+
+                transfer_encoding = transfer_encoding[0]
                 if transfer_encoding.lower() == "chunked":
                     while True:
                         chunk_data = client_connection.recv(1024)
@@ -109,8 +107,9 @@ class HTTPServer(TCPServer):
                     raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
 
             elif content_length is not None:  # "Content-Length" is present
+                content_length = content_length[0]
                 try:
-                    content_length = int(content_length)
+                    content_length = int(content_length)  # "Content-Length" should be unique
                 except ValueError:  # can't conver to integer, like empty string
                     raise InvalidContentLength(content_length=content_length)
                 else:  # can convert to integer but still invalid like negative number
@@ -146,9 +145,9 @@ class HTTPServer(TCPServer):
             request_handler = self.resolve_route(url=url, method=method)
 
             if request_handler:
-                body = request_handler()
+                response_body = request_handler()
                 response.set_status_code(status_code=HTTPResponseStatusCode.HTTP_200)
-                response.set_body(body=body.data, content_type=body.content_type)
+                response.set_body(body=response_body.data, content_type=response_body.content_type)
             else:
                 response.set_status_code(HTTPResponseStatusCode.HTTP_404)
 
