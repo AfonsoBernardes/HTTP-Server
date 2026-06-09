@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from displayable_exceptions.http_exception import HTTPServerException
 from request.schema import HTTPRequestMethod
@@ -22,8 +22,10 @@ class InvalidRequest(HTTPServerException):
 class UnsupportedTransferEncoding(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_501
 
-    def __init__(self, transfer_encoding: str):
-        super().__init__(f"'Transfer-Encoding': {transfer_encoding!r} is not supported, only 'chunked'")
+    def __init__(self, transfer_encoding: str | List[str]):
+        transfer_encoding_string = ",".join(transfer_encoding) if isinstance(transfer_encoding, list) else transfer_encoding
+
+        super().__init__(f"'Transfer-Encoding': {transfer_encoding_string!r} is not supported, only 'chunked'")
 
 
 class InvalidTransferEncoding(HTTPServerException):
