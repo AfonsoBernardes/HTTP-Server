@@ -5,7 +5,7 @@ import pytest
 from asserts import assert_raises, assert_equal, assert_in, assert_is_none, assert_is_instance
 
 from conftest import FakeSocket
-from request.exceptions import DuplicateHTTPHeader
+from request.exceptions import DuplicateHTTPHeader, InvalidHTTPHeaders, InvalidHTTPMethod, InvalidHTTPProtocol
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
@@ -106,6 +106,26 @@ class TestServerHeaderHandling:
         assert_in(InvalidDecoding().base_message, caplog.text)
 
     @pytest.mark.parametrize(
+        "invalid_headers",
+        [
+            b"GET / HTTP/1.1\r\nInvalid-Headers Test\r\n\r\n",
+            b"GET / HTTP/1.1\r\nInvalidHeaders - Test\r\n\r\n",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_headers(self, caplog, invalid_headers: bytes):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            invalid_headers,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidHTTPHeaders.status_code)
+        assert_in(InvalidHTTPHeaders().base_message, caplog.text)
+
+    @pytest.mark.parametrize(
         "request_headers, header_key, num_values",
         [
             (b"POST / HTTP/1.1\r\nContent-Type: Test Server\r\nContent-Type: text/html\r\n\r\n", "content-type", 2),
@@ -127,6 +147,49 @@ class TestServerHeaderHandling:
 
         assert_equal(response.status_code, DuplicateHTTPHeader.status_code)
         assert_in(DuplicateHTTPHeader(header_key=header_key, num_values=num_values).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "invalid_headers, invalid_method",
+        [
+            (b" / HTTP/1.1\r\n\r\n", ""),
+            (b"/ HTTP/1.1\r\n\r\n", "/"),
+            (b"INVALID / HTTP/1.1\r\n\r\n", "INVALID"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_http_method(self, caplog, invalid_headers: bytes, invalid_method: str):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            invalid_headers,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidHTTPMethod.status_code)
+        assert_in(InvalidHTTPMethod(method=invalid_method).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "invalid_headers, invalid_protocol",
+        [
+            (b"GET / HTTP/1.3\r\n\r\n", "HTTP/1.3"),
+            (b"GET / HTTP/2\r\n\r\n", "HTTP/2"),
+            (b"GET / INVALID\r\n\r\n", "INVALID"),
+            (b"GET / \r\n\r\n", None),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_http_protocol(self, caplog, invalid_headers: bytes, invalid_protocol: str):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            invalid_headers,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidHTTPProtocol.status_code)
+        assert_in(InvalidHTTPProtocol(protocol=invalid_protocol).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, unsupported_transfer_encoding",

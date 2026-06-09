@@ -21,6 +21,7 @@ class InvalidHTTPProtocol(HTTPServerException):
     EXPECTED_PROTOCOLS = [protocol.value for protocol in HTTPProtocol]
 
     def __init__(self, protocol: str):
+        protocol = protocol if protocol else None
         super().__init__(f"invalid HTTP protocol: expected [{", ".join(self.EXPECTED_PROTOCOLS)}], got {protocol!r}")
 
 
