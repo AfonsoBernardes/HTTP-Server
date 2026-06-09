@@ -22,7 +22,7 @@ def parse_headers(request_headers: str) -> Tuple[
     HTTPRequestMethod,
     str,
     HTTPProtocol,
-    Dict[str, str],
+    Dict[str, List[str]],
 ]:
     request_headers = request_headers.splitlines()
 
@@ -49,8 +49,6 @@ def parse_headers(request_headers: str) -> Tuple[
     for key, value in headers.items():
         if key in SINGLE_VALUE_HEADERS and len(value) > 1:
             raise DuplicateHTTPHeader(header_key=key, num_values=len(value))
-        elif len(value) == 1:
-            headers[key] = value[0]
 
     try:
         method = HTTPRequestMethod(request_line[0])
