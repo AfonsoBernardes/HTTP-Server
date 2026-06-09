@@ -106,6 +106,29 @@ class TestServerHeaderHandling:
         assert_in(InvalidDecoding().base_message, caplog.text)
 
     @pytest.mark.parametrize(
+        "request_headers, header_key, num_values",
+        [
+            (b"POST / HTTP/1.1\r\nContent-Type: Test Server\r\nContent-Type: text/html\r\n\r\n", "content-type", 2),
+            (b"POST / HTTP/1.1\r\nContent-Length: 0\r\ncontent-length: 0\r\n\r\n", "content-length", 2),
+            (b"POST / HTTP/1.1\r\nHost: Host 1\r\nhost: Host 2\r\nHOST: Host3\r\n\r\n", "host", 3),
+            (b"POST / HTTP/1.1\r\nAUTHORIZATION: BearerXYZ\r\nAuthorization: BearerZYX\r\n\r\n", "authorization", 2),
+            (b"POST / HTTP/1.1\r\nContent-Encoding: gzip, compressed,deflate\r\n\r\n", "content-encoding", 3),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_disallowed_duplicate_headers(self, caplog, request_headers: bytes, header_key: str, num_values: int):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            request_headers,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, DuplicateHTTPHeader.status_code)
+        assert_in(DuplicateHTTPHeader(header_key=header_key, num_values=num_values).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
         "request_line, unsupported_transfer_encoding",
         [
             (b"POST / HTTP/1.1\r\nTransfer-Encoding: compress\r\n\r\n", "compress"),
