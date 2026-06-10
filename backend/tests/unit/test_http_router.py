@@ -1,5 +1,7 @@
+import re
+
 import pytest
-from asserts import assert_equal, assert_in, assert_raises
+from asserts import assert_equal, assert_in
 
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRoute, URLNotFound, HandlerNotFound
@@ -63,7 +65,7 @@ class TestIncludeRoute:
         assert_in(TEST_PATH, router.routes)
         assert_in(request_method, router.routes[TEST_PATH])
 
-        with assert_raises(DuplicateRoute, f"{request_method.value} already exists for path {TEST_PATH}"):
+        with pytest.raises(DuplicateRoute, match=re.escape(f"{request_method.value!r} already exists for path {TEST_PATH!r}")):
             router.include_route(path=TEST_PATH, method=request_method, handler=lambda x: x)
 
 
@@ -97,7 +99,7 @@ class TestIncludeRoute:
             assert_in(request_method, router.routes[TEST_PATH])
 
             invalid_url = "/non/existent"
-            with assert_raises(URLNotFound, f"URL {invalid_url!r} not found"):
+            with pytest.raises(URLNotFound, match=re.escape(f"URL {invalid_url!r} not found")):
                 router.resolve(url=invalid_url, method=request_method)
 
         @pytest.mark.asyncio
@@ -111,7 +113,7 @@ class TestIncludeRoute:
             assert_in(existing_method, router.routes[TEST_PATH])
 
             request_method = HTTPRequestMethod.DELETE
-            with assert_raises(HandlerNotFound, f"no handler found for {request_method.value!r} {TEST_PATH!r}"):
+            with pytest.raises(HandlerNotFound, match=re.escape(f"no handler found for {request_method.value!r} {TEST_PATH!r}")):
                 router.resolve(url=TEST_PATH, method=request_method)
 
 

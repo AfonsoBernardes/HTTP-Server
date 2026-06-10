@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -5,7 +6,7 @@ from typing import Dict, Optional
 from unittest.mock import patch
 
 import pytest
-from asserts import assert_equal, assert_in, assert_raises
+from asserts import assert_equal, assert_in
 
 from api.schema import ContentType
 from conftest import FakeSocket
@@ -101,7 +102,7 @@ class TestResponseHeaders:
         assert_equal(response.client_connection, fake_connection)
         assert_in("Server", response.headers)
 
-        with assert_raises(InvalidResponseHeader, "invalid response header"):
+        with pytest.raises(InvalidResponseHeader, match=re.escape("invalid response header")):
             response.set_headers(extra_headers)
 
     @patch("response.http_response.datetime")
@@ -250,5 +251,5 @@ class TestResponseBody:
         assert_equal(response.client_connection, fake_connection)
         assert_in("Server", response.headers)
 
-        with assert_raises(InvalidBody, f"body '{body}' cannot be serialized as '{content_type.value}'"):
+        with pytest.raises(InvalidBody, match=re.escape(f"body '{body}' cannot be serialized as '{content_type.value}'")):
             response.set_body(body=body, content_type=content_type)

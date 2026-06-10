@@ -1,8 +1,9 @@
 import logging
+import re
 from typing import Optional, Any
 
 import pytest
-from asserts import assert_raises, assert_equal, assert_in, assert_is_none, assert_is_instance
+from asserts import assert_equal, assert_in, assert_is_none
 
 from conftest import FakeSocket
 from request.exceptions import (
@@ -423,7 +424,7 @@ class TestServerRouting:
             assert_in(router, http_server.free_routers)
 
         expected_error_message = f"router already exists"
-        with assert_raises(DuplicateRouter, expected_error_message):
+        with pytest.raises(DuplicateRouter, match=re.escape(expected_error_message)):
             http_server.include_router(prefix=second_prefix, router=router)
 
     @pytest.mark.asyncio
@@ -439,7 +440,7 @@ class TestServerRouting:
 
         new_router = HTTPRouter()
         expected_error_message = f"a router with prefix {prefix!r} already exists"
-        with assert_raises(DuplicateRouterPrefix, expected_error_message):
+        with pytest.raises(DuplicateRouterPrefix, match=re.escape(expected_error_message)):
             http_server.include_router(prefix=prefix, router=new_router)
 
     @pytest.mark.parametrize(
