@@ -1,14 +1,21 @@
 import re
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 
 import pytest
 from asserts import assert_equal, assert_raises
 
 from conftest import FakeSocket
-from request.exceptions import InvalidHTTPMethod, InvalidHTTPProtocol, InvalidHTTPHeaders, DuplicateHTTPHeader, \
-    InvalidBodyLength
+from request.exceptions import (
+    InvalidHTTPMethod,
+    InvalidHTTPProtocol,
+    InvalidHTTPHeaders,
+    DuplicateHTTPHeader,
+    InvalidBodyLength,
+    InvalidContentLength, BodyTooLarge, UnspecifiedBodyLength
+)
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
+from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
 
 
@@ -172,8 +179,58 @@ class TestRequestBodyParsing:
 
         assert_equal(request.body, expected_body)
 
+    @pytest.mark.parametrize(
+        "invalid_content_length",
+        [
+            "ABC",
+            -1,
+            "",
+        ],
+    )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_invalid_body(self):
+    async def test_should_fail_to_handle_request_with_invalid_content_length(self, caplog, invalid_content_length: Any):
+        fake_connection = FakeSocket([])
+
+        request = HTTPRequest(
+            method=HTTPRequestMethod.POST,
+            url="/",
+            protocol=HTTPProtocol.HTTP_1_1,
+            headers={"content-length": [invalid_content_length]},
+        )
+
+        content_length_string = f": {invalid_content_length!r}" if invalid_content_length else ""
+        with pytest.raises(
+                InvalidContentLength,
+                match=re.escape(f"'Content-Length'{content_length_string} is not an integer greater or equal to zero")
+        ):
+            request.parse_body(client_connection=fake_connection, body=b"")
+
+    @pytest.mark.parametrize(
+        "large_content_length",
+        [
+            9999999,
+            1048577,
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_too_large_content_length(self, caplog, large_content_length: int):
+        fake_connection = FakeSocket([])
+
+        request = HTTPRequest(
+            method=HTTPRequestMethod.POST,
+            url="/",
+            protocol=HTTPProtocol.HTTP_1_1,
+            headers={"content-length": [large_content_length]},
+        )
+
+        with pytest.raises(
+                BodyTooLarge,
+                match=re.escape(f"expected a body size smaller than {request.MAX_BODY_SIZE!r} bytes, got {large_content_length!r} bytes")
+        ):
+            request.parse_body(client_connection=fake_connection, body=b"")
+
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_body_length(self):
         fake_connection = FakeSocket([])
 
         request = HTTPRequest(
@@ -185,4 +242,50 @@ class TestRequestBodyParsing:
 
         with pytest.raises(InvalidBodyLength, match=re.escape("expected body with length 20, got 19 bytes")):
             request.parse_body(client_connection=fake_connection, body=b"Shorter than twenty")
+
+    @pytest.mark.parametrize(
+        "request_method",
+        [
+            HTTPRequestMethod.POST,
+            HTTPRequestMethod.PUT,
+            HTTPRequestMethod.PATCH,
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_without_transfer_encoding_or_content_length(self, caplog, request_method: HTTPRequestMethod):
+        fake_connection = FakeSocket([])
+
+        request = HTTPRequest(
+            method=request_method,
+            url="/",
+            protocol=HTTPProtocol.HTTP_1_1,
+            headers={},
+        )
+
+        with pytest.raises(UnspecifiedBodyLength, match=re.escape(f"expected either 'Transfer-Encoding' or 'Content-Length' for method {request_method.value!r}")):
+            request.parse_body(client_connection=fake_connection, body=b"")
+
+    @pytest.mark.parametrize(
+        "content_length, invalid_body_encoding",
+        [
+            ("1", b"\xff"),
+            ("1", b"\x80"),
+            ("1", b"\xc3"),
+            ("4", b"\xf0\x28\x8c\xbc"),
+            ("3", b"\xff\xfe\xfa"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_body_encoding(self, caplog, content_length: str, invalid_body_encoding: bytes):
+        fake_connection = FakeSocket([])
+
+        request = HTTPRequest(
+            method=HTTPRequestMethod.POST,
+            url="/",
+            protocol=HTTPProtocol.HTTP_1_1,
+            headers={"content-length": [content_length]},
+        )
+
+        with pytest.raises(InvalidDecoding, match=re.escape("unable to decode request, make sure it is encoded with UTF-8")):
+            request.parse_body(client_connection=fake_connection, body=invalid_body_encoding)
 
