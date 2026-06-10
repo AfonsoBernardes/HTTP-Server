@@ -77,7 +77,7 @@ class HTTPRequest:
     method: HTTPRequestMethod
     url: str
     protocol: HTTPProtocol
-    headers: Dict[str, str | List[str]]
+    headers: Dict[str, List[str]]
     body: Optional[str]
 
     MAX_BODY_SIZE = 1 * 1024 * 1024
