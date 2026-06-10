@@ -279,14 +279,14 @@ class TestServerHeaderHandling:
         assert_in(DuplicateHTTPHeader(header_key="content-length", num_values=2).base_message, caplog.text)
 
     @pytest.mark.parametrize(
-        "headers, invalid_content_length",
+        "headers, large_content_length",
         [
             (b"GET / HTTP/1.1\r\nContent-Length: 9999999\r\n\r\n", 9999999),
             (b"GET / HTTP/1.1\r\nContent-Length: 1048577\r\n\r\n", 1048577)
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_too_large_content_length(self, caplog, headers: bytes, invalid_content_length: Any):
+    async def test_should_fail_to_handle_request_with_too_large_content_length(self, caplog, headers: bytes, large_content_length: int):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
             headers,
@@ -296,7 +296,7 @@ class TestServerHeaderHandling:
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, BodyTooLarge.status_code)
-        assert_in(BodyTooLarge(max_body_size=1024*1024, content_length=invalid_content_length).base_message, caplog.text)
+        assert_in(BodyTooLarge(max_body_size=1024*1024, content_length=large_content_length).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, request_method",
@@ -337,24 +337,18 @@ class TestServerBodyHandling:
 
         assert http_server.handle_request(fake_connection)
 
-    @pytest.mark.parametrize(
-        "invalid_body, expected_length, body_length",
-        [
-            (b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nShorter than twenty", 20, 19),
-        ],
-    )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_invalid_body(self, caplog, invalid_body: bytes, expected_length: int, body_length: int):
+    async def test_should_fail_to_handle_request_with_invalid_body_length(self, caplog):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
-            invalid_body,
+            b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nShorter than twenty",
         ])
 
         with caplog.at_level(logging.ERROR):
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, InvalidBodyLength.status_code)
-        assert_in(InvalidBodyLength(body_length=body_length, expected_length=expected_length).base_message, caplog.text)
+        assert_in(InvalidBodyLength(body_length=19, expected_length=20).base_message, caplog.text)
 
 
     @pytest.mark.parametrize(
