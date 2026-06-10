@@ -12,6 +12,7 @@ class InvalidHTTPMethod(HTTPServerException):
     EXPECTED_METHODS = [method.value for method in HTTPRequestMethod]
 
     def __init__(self, method: str):
+        method = method if method else None
         super().__init__(f"invalid HTTP method: expected [{", ".join(self.EXPECTED_METHODS)}], got {method!r}")
 
 
