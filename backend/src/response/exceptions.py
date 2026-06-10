@@ -30,4 +30,4 @@ class InvalidBody(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_500
 
     def __init__(self, body: Any, content_type: ContentType):
-        super().__init__(f"body {body!r} cannot be serialized as {content_type.value!r}")
+        super().__init__(f"body '{body}' cannot be serialized as {content_type.value!r}")
