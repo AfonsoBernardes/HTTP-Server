@@ -321,17 +321,17 @@ class TestServerHeaderHandling:
 
 class TestServerBodyHandling:
     @pytest.mark.parametrize(
-        "byte_request",
+        "bytes_request",
         [
             b"GET / HTTP/1.1\r\nContent-Length: 0\r\n\r\n",
             b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nCorrect body length.",
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_handle_request_with_valid_body(self, byte_request: bytes):
+    async def test_should_handle_request_with_valid_body(self, bytes_request: bytes):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
-            byte_request,
+            bytes_request,
         ])
 
         assert http_server.handle_request(fake_connection)
