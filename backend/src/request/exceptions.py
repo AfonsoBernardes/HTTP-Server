@@ -66,7 +66,7 @@ class InvalidContentLength(HTTPServerException):
 
     def __init__(self, content_length: Optional[Any]):
         content_length_string = f": {content_length!r}" if content_length else ""
-        super().__init__(f"'Content-Length'{content_length_string} is not a valid positive integer")
+        super().__init__(f"'Content-Length'{content_length_string} is not an integer greater or equal to zero")
 
 
 class InvalidBodyLength(HTTPServerException):

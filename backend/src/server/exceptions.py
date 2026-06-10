@@ -6,7 +6,7 @@ class InvalidDecoding(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
     def __init__(self):
-        super().__init__("unable to decode request")
+        super().__init__("unable to decode request, make sure it is encoded with UTF-8")
 
 
 class InvalidRequest(HTTPServerException):
