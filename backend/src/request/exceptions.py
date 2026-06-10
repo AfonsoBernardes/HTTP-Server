@@ -58,7 +58,7 @@ class InvalidTransferEncoding(HTTPServerException):
 
     def __init__(self, transfer_encoding: Optional[Any]):
         transfer_encoding_string = f": {transfer_encoding!r}" if transfer_encoding else ""
-        super().__init__(f"'Transfer-Encoding'{transfer_encoding_string} is not valid ")
+        super().__init__(f"'Transfer-Encoding'{transfer_encoding_string} is not valid")
 
 
 class InvalidContentLength(HTTPServerException):
