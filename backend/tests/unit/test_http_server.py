@@ -1,16 +1,27 @@
 import logging
+import re
 from typing import Optional, Any
 
 import pytest
-from asserts import assert_raises, assert_equal, assert_in, assert_is_none, assert_is_instance
+from asserts import assert_equal, assert_in, assert_is_none
 
 from conftest import FakeSocket
-from request.exceptions import DuplicateHTTPHeader, InvalidHTTPHeaders, InvalidHTTPMethod, InvalidHTTPProtocol
+from request.exceptions import (
+    DuplicateHTTPHeader,
+    InvalidHTTPHeaders,
+    InvalidHTTPMethod,
+    InvalidHTTPProtocol,
+    UnsupportedTransferEncoding,
+    InvalidTransferEncoding,
+    InvalidContentLength,
+    InvalidBodyLength,
+    BodyTooLarge,
+    UnspecifiedBodyLength,
+)
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
-from server.exceptions import InvalidDecoding, InvalidRequest, InvalidBodyLength, InvalidContentLength, \
-    UnspecifiedBodyLength, UnsupportedTransferEncoding, InvalidTransferEncoding, BodyTooLarge
+from server.exceptions import InvalidDecoding, InvalidRequest
 from server.http_server import HTTPServer
 
 
@@ -268,14 +279,14 @@ class TestServerHeaderHandling:
         assert_in(DuplicateHTTPHeader(header_key="content-length", num_values=2).base_message, caplog.text)
 
     @pytest.mark.parametrize(
-        "headers, invalid_content_length",
+        "headers, large_content_length",
         [
             (b"GET / HTTP/1.1\r\nContent-Length: 9999999\r\n\r\n", 9999999),
             (b"GET / HTTP/1.1\r\nContent-Length: 1048577\r\n\r\n", 1048577)
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_too_large_content_length(self, caplog, headers: bytes, invalid_content_length: Any):
+    async def test_should_fail_to_handle_request_with_too_large_content_length(self, caplog, headers: bytes, large_content_length: int):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
             headers,
@@ -285,7 +296,7 @@ class TestServerHeaderHandling:
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, BodyTooLarge.status_code)
-        assert_in(BodyTooLarge(max_body_size=1024*1024, content_length=invalid_content_length).base_message, caplog.text)
+        assert_in(BodyTooLarge(max_body_size=1024*1024, content_length=large_content_length).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, request_method",
@@ -311,39 +322,33 @@ class TestServerHeaderHandling:
 
 class TestServerBodyHandling:
     @pytest.mark.parametrize(
-        "byte_request",
+        "bytes_request",
         [
             b"GET / HTTP/1.1\r\nContent-Length: 0\r\n\r\n",
             b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nCorrect body length.",
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_handle_request_with_valid_body(self, byte_request: bytes):
+    async def test_should_handle_request_with_valid_body(self, bytes_request: bytes):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
-            byte_request,
+            bytes_request,
         ])
 
         assert http_server.handle_request(fake_connection)
 
-    @pytest.mark.parametrize(
-        "invalid_body, expected_length, body_length",
-        [
-            (b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nShorter than twenty", 20, 19),
-        ],
-    )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_invalid_body(self, caplog, invalid_body: bytes, expected_length: int, body_length: int):
+    async def test_should_fail_to_handle_request_with_invalid_body_length(self, caplog):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
-            invalid_body,
+            b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nShorter than twenty",
         ])
 
         with caplog.at_level(logging.ERROR):
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, InvalidBodyLength.status_code)
-        assert_in(InvalidBodyLength(body_length=body_length, expected_length=expected_length).base_message, caplog.text)
+        assert_in(InvalidBodyLength(body_length=19, expected_length=20).base_message, caplog.text)
 
 
     @pytest.mark.parametrize(
@@ -413,7 +418,7 @@ class TestServerRouting:
             assert_in(router, http_server.free_routers)
 
         expected_error_message = f"router already exists"
-        with assert_raises(DuplicateRouter, expected_error_message):
+        with pytest.raises(DuplicateRouter, match=re.escape(expected_error_message)):
             http_server.include_router(prefix=second_prefix, router=router)
 
     @pytest.mark.asyncio
@@ -429,7 +434,7 @@ class TestServerRouting:
 
         new_router = HTTPRouter()
         expected_error_message = f"a router with prefix {prefix!r} already exists"
-        with assert_raises(DuplicateRouterPrefix, expected_error_message):
+        with pytest.raises(DuplicateRouterPrefix, match=re.escape(expected_error_message)):
             http_server.include_router(prefix=prefix, router=new_router)
 
     @pytest.mark.parametrize(

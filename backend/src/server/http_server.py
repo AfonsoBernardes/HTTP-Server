@@ -11,14 +11,8 @@ from response.schema import HTTPResponseStatusCode
 from router.exceptions import DuplicateRouter, DuplicateRouterPrefix
 from router.http_router import HTTPRouter
 from server.exceptions import (
-    BodyTooLarge,
-    InvalidBodyLength,
-    InvalidContentLength,
     InvalidDecoding,
     InvalidRequest,
-    InvalidTransferEncoding,
-    UnspecifiedBodyLength,
-    UnsupportedTransferEncoding,
 )
 from server.tcp_server import TCPServer
 
@@ -26,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 class HTTPServer(TCPServer):
-    MAX_BODY_SIZE = 1 * 1024 * 1024
-
     def __init__(self):
         super().__init__()
         self.prefixed_routers: Dict[str, HTTPRouter] = {}
@@ -84,63 +76,7 @@ class HTTPServer(TCPServer):
             http_request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
 
-            # keys are already lower case from "parse_headers" function
-            transfer_encoding = http_request.headers.get("transfer-encoding", None)
-            content_length = http_request.headers.get("content-length", None)
-
-            # TODO: Wrong Chunked Parsing:
-            #  1. Need to parse each chunk as declared on length prefix in hex
-            if transfer_encoding is not None:
-                if len(transfer_encoding) != 1:
-                    raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
-
-                transfer_encoding = transfer_encoding[0]
-                if transfer_encoding.lower() == "chunked":
-                    while True:
-                        chunk_data = client_connection.recv(1024)
-                        if len(chunk_data) == 0:
-                            break
-                        body += chunk_data
-                elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
-                    raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
-                else:
-                    raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
-
-            elif content_length is not None:  # "Content-Length" is present
-                content_length = content_length[0]
-                try:
-                    content_length = int(content_length)  # "Content-Length" should be unique
-                except ValueError:  # can't conver to integer, like empty string
-                    raise InvalidContentLength(content_length=content_length)
-                else:  # can convert to integer but still invalid like negative number
-                    if content_length < 0:
-                        raise InvalidContentLength(content_length=content_length)
-                    elif content_length > self.MAX_BODY_SIZE:
-                        raise BodyTooLarge(max_body_size=self.MAX_BODY_SIZE, content_length=content_length)
-
-                if content_length == 0:
-                    body = b""
-                else:
-                    while len(body) < content_length:
-                        chunk_data = client_connection.recv(1024)
-                        if not chunk_data:
-                            break
-                        body += chunk_data
-
-                    if len(body) < content_length:
-                        raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
-                    else:
-                        body = body[:content_length] if content_length > 0 else b""
-
-            elif http_request.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
-                raise UnspecifiedBodyLength(method=http_request.method)
-
-            try:
-                body = body.decode(encoding="UTF-8", errors="strict") if body else None
-            except UnicodeDecodeError:
-                raise InvalidDecoding()
-            else:
-                http_request.parse_body(body)
+            request_body = http_request.parse_body(client_connection=client_connection, body=body)
 
             request_handler = self.resolve_route(url=url, method=method)
 
