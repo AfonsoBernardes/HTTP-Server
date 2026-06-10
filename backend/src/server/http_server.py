@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 
 class HTTPServer(TCPServer):
-    # MAX_BODY_SIZE = 1 * 1024 * 1024
-
     def __init__(self):
         super().__init__()
         self.prefixed_routers: Dict[str, HTTPRouter] = {}
