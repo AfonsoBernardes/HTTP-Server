@@ -89,7 +89,6 @@ class HTTPRequest:
         self.headers = headers
         self.body = None
 
-    # TODO: think about writing body to a file and process from there
     def parse_body(self, client_connection: socket, body: bytes) -> Optional[str]:
         # keys are already lower case from "parse_headers" function
         transfer_encoding = self.headers.get("transfer-encoding", None)
