@@ -239,7 +239,7 @@ class TestRequestBodyParsing:
         )
 
         with pytest.raises(UnspecifiedBodyLength, match=re.escape(f"expected either 'Transfer-Encoding' or 'Content-Length' for method {request_method.value!r}")):
-            request.parse_body(client_connection=fake_connection, body=b"")
+            request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
     @pytest.mark.parametrize(
         "content_length, invalid_body_encoding",
@@ -263,7 +263,7 @@ class TestRequestBodyParsing:
         )
 
         with pytest.raises(InvalidDecoding, match=re.escape("unable to decode request, make sure it is encoded with UTF-8")):
-            request.parse_body(client_connection=fake_connection, body=invalid_body_encoding)
+            request.parse_body(client_connection=fake_connection, body_buffer=invalid_body_encoding)
 
 
     class TestRequestBodyTransferEncodingParsing:
@@ -292,7 +292,7 @@ class TestRequestBodyParsing:
                     UnsupportedTransferEncoding,
                     match=re.escape(f"'Transfer-Encoding': {transfer_encoding_string!r} is not supported, only 'chunked'")
             ):
-                request.parse_body(client_connection=fake_connection, body=b"")
+                request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
         @pytest.mark.parametrize(
             "invalid_transfer_encoding",
@@ -320,7 +320,7 @@ class TestRequestBodyParsing:
                     InvalidTransferEncoding,
                     match=re.escape(f"'Transfer-Encoding'{transfer_encoding_string} is not valid")
             ):
-                request.parse_body(client_connection=fake_connection, body=b"")
+                request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
 
     class TestRequestBodyContentLengthParsing:
@@ -348,7 +348,7 @@ class TestRequestBodyParsing:
                     InvalidContentLength,
                     match=re.escape(f"'Content-Length'{content_length_string} is not an integer greater or equal to zero")
             ):
-                request.parse_body(client_connection=fake_connection, body=b"")
+                request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
         @pytest.mark.parametrize(
             "large_content_length",
@@ -372,7 +372,7 @@ class TestRequestBodyParsing:
                     BodyTooLarge,
                     match=re.escape(f"expected a body size smaller than {request.MAX_BODY_SIZE!r} bytes, got {large_content_length!r} bytes")
             ):
-                request.parse_body(client_connection=fake_connection, body=b"")
+                request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
         @pytest.mark.asyncio
         async def test_should_fail_to_handle_request_with_invalid_body_length(self):
@@ -386,4 +386,4 @@ class TestRequestBodyParsing:
             )
 
             with pytest.raises(InvalidBodyLength, match=re.escape("expected body with length 20, got 19 bytes")):
-                request.parse_body(client_connection=fake_connection, body=b"Shorter than twenty")
+                request.parse_body(client_connection=fake_connection, body_buffer=b"Shorter than twenty")

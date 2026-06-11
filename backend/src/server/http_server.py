@@ -67,7 +67,7 @@ class HTTPServer(TCPServer):
                 raw_data += chunk_data
 
             try:
-                headers, body = raw_data.split(b"\r\n\r\n", maxsplit=1)
+                headers, body_buffer = raw_data.split(b"\r\n\r\n", maxsplit=1)
                 headers = headers.decode(encoding="UTF-8", errors="strict")  # decode only headers
             except UnicodeDecodeError:
                 raise InvalidDecoding()
@@ -79,7 +79,7 @@ class HTTPServer(TCPServer):
             http_request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
 
-            request_body = http_request.parse_body(client_connection=client_connection, body=body)
+            request_body = http_request.parse_body(client_connection=client_connection, body_buffer=body_buffer)
 
             request_handler = self.resolve_route(url=url, method=method)
 
