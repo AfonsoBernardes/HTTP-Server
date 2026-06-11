@@ -8,7 +8,10 @@ from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
 from response.http_response import HTTPResponse
 from response.schema import HTTPResponseStatusCode
-from router.exceptions import DuplicateRouter, DuplicateRouterPrefix
+from router.exceptions import (
+    DuplicateRouter,
+    DuplicateRouterPrefix,
+)
 from router.http_router import HTTPRouter
 from server.exceptions import (
     InvalidDecoding,
