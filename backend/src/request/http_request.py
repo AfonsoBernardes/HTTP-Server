@@ -7,13 +7,13 @@ from request.exceptions import (
     DuplicateHTTPHeader,
     InvalidBodyLength,
     InvalidContentLength,
+    InvalidHTTPHeaderKey,
     InvalidHTTPHeaders,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
-    InvalidHTTPHeaderKey,
 )
 from request.schema import HTTPRequestMethod
 from server.exceptions import InvalidDecoding

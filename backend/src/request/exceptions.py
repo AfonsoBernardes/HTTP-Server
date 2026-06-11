@@ -34,14 +34,13 @@ class InvalidHTTPHeaders(HTTPServerException):
             "invalid HTTP headers: make sure headers are key-value pairs, separated by a colon and a line breaker"
         )
 
+
 class InvalidHTTPHeaderKey(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
     def __init__(self, key: str, invalid_char: str):
         invalid_char = invalid_char if invalid_char.isprintable() else f"\\x{ord(invalid_char):02x}"
-        super().__init__(
-            f"invalid HTTP header key {key!r}: character '{invalid_char}' is not accepted"
-        )
+        super().__init__(f"invalid HTTP header key {key!r}: character '{invalid_char}' is not accepted")
 
 
 class DuplicateHTTPHeader(HTTPServerException):
