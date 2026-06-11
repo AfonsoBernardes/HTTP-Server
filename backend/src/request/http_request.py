@@ -1,3 +1,4 @@
+import re
 from socket import socket
 from typing import Dict, List, Optional, Tuple
 
@@ -12,10 +13,13 @@ from request.exceptions import (
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
+    InvalidHTTPHeaderKey,
 )
 from request.schema import HTTPRequestMethod
 from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
+
+INVALID_HEADER_KEY_CHARS = re.compile(r'[\x00-\x1f\x7f\s()<>@,;:\\"/\[\]?={}]')
 
 SINGLE_VALUE_HEADERS = {
     "content-length",
@@ -32,7 +36,7 @@ def parse_headers(request_headers: str) -> Tuple[
     HTTPProtocol,
     Dict[str, List[str]],
 ]:
-    request_headers = request_headers.splitlines()
+    request_headers = request_headers.split("\r\n")
 
     # parse request line: <METHOD> <TARGET> <PROTOCOL>
     request_line = request_headers.pop(0)
@@ -41,9 +45,14 @@ def parse_headers(request_headers: str) -> Tuple[
     headers = {}
     for header in request_headers:
         try:
-            key, value = header.split(":", maxsplit=1)
+            key, value = header.split(":")
 
-            key = key.strip().lower()
+            invalid_char_match = INVALID_HEADER_KEY_CHARS.search(key)
+            if invalid_char_match:
+                invalid_char = invalid_char_match.group()
+                raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_char)
+
+            key = key.lower()
             value_list = [value.strip() for value in value.split(",")]
 
             for value in value_list:

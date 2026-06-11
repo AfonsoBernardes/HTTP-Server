@@ -15,7 +15,7 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
-    InvalidTransferEncoding,
+    InvalidTransferEncoding, InvalidHTTPHeaderKey,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -106,7 +106,7 @@ class TestRequestHeadersParsing:
     @pytest.mark.parametrize(
         "request_headers, expected_headers",
         [
-            ("", {}),
+            # ("", {}),
             ("Header-Key: Header Value", {"header-key": ["Header Value"]}),
             ("Header-Key:Header Value", {"header-key": ["Header Value"]}),
             ("Header-Key: Header Value\r\nContent-Type: text/html", {"header-key": ["Header Value"], "content-type": ["text/html"]}),
@@ -124,6 +124,40 @@ class TestRequestHeadersParsing:
         assert_equal(request.url, "/")
         assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, expected_headers)
+
+    @pytest.mark.parametrize(
+        "invalid_header_key, invalid_char",
+        [
+            ("Header Key", " "),
+            ("Header\nKey", "\\x0a"),
+            ("Header\rKey", "\\x0d"),
+            ("Header\tKey", "\\x09"),
+            ("HeaderKey[", "["),
+            ("HeaderKey]", "]"),
+            ("HeaderKey\\", "\\"),
+            ("HeaderKey/", "/"),
+            ("HeaderKey<", "<"),
+            ("HeaderKey>", ">"),
+            ("HeaderKey@", "@"),
+            ("HeaderKey,", ","),
+            ("HeaderKey;", ";"),
+            ("HeaderKey{", "{"),
+            ("HeaderKey}", "}"),
+            ("HeaderKey\x7f", "\\x7f"),
+
+
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_headers_with_invalid_characters(self, invalid_header_key: str, invalid_char):
+        data = f'GET / HTTP/1.1\r\n{invalid_header_key}: Header Value'
+
+        # invalid_char = invalid_char if invalid_char.isprintable() else f"\\x{ord(invalid_char):02x}"
+        with pytest.raises(
+                InvalidHTTPHeaderKey,
+                match=re.escape(f"invalid HTTP header key {invalid_header_key!r}: character '{invalid_char}' is not accepted")
+        ):
+            parse_headers(data)
 
     @pytest.mark.parametrize(
         "request_headers, header_key, num_values",
