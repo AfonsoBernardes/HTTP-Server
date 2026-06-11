@@ -129,6 +129,7 @@ class TestRequestHeadersParsing:
         "invalid_header_key, invalid_char",
         [
             ("Header Key", " "),
+            ("Header:Key", ":"),
             ("Header\nKey", "\\x0a"),
             ("Header\rKey", "\\x0d"),
             ("Header\tKey", "\\x09"),

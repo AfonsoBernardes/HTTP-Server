@@ -40,12 +40,12 @@ def parse_headers(request_headers: str) -> Tuple[
 
     # parse request line: <METHOD> <TARGET> <PROTOCOL>
     request_line = request_headers.pop(0)
-    request_line = request_line.split(" ")
+    request_line = request_line.split(" ", maxsplit=3)
 
     headers = {}
     for header in request_headers:
         try:
-            key, value = header.split(":")
+            key, value = header.rsplit(":", maxsplit=1)
 
             invalid_char_match = INVALID_HEADER_KEY_CHARS.search(key)
             if invalid_char_match:
