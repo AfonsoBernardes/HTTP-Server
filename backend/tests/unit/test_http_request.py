@@ -107,9 +107,10 @@ class TestRequestHeadersParsing:
         "request_headers, expected_headers",
         [
             ("", {}),
-            ("Server: Test Server", {"server": ["Test Server"]}),
-            ("Server: Test Server\r\nContent-Type: text/html", {"server": ["Test Server"], "content-type": ["text/html"]}),
-            ("Server: Test Server 1\r\nserver: Test Server 2\r\nContent-Type: text/html", {"server": ["Test Server 1" , "Test Server 2"], "content-type": ["text/html"]}),
+            ("Header-Key: Header Value", {"header-key": ["Header Value"]}),
+            ("Header-Key:Header Value", {"header-key": ["Header Value"]}),
+            ("Header-Key: Header Value\r\nContent-Type: text/html", {"header-key": ["Header Value"], "content-type": ["text/html"]}),
+            ("Header-Key: Header Value 1\r\nheader-key: Header Value 2\r\nContent-Type: text/html", {"header-key": ["Header Value 1" , "Header Value 2"], "content-type": ["text/html"]}),
         ],
     )
     @pytest.mark.asyncio

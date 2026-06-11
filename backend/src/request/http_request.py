@@ -41,9 +41,9 @@ def parse_headers(request_headers: str) -> Tuple[
     headers = {}
     for header in request_headers:
         try:
-            key, value = header.split(": ", maxsplit=1)
+            key, value = header.split(":", maxsplit=1)
 
-            key = key.lower()
+            key = key.strip().lower()
             value_list = [value.strip() for value in value.split(",")]
 
             for value in value_list:
