@@ -153,7 +153,6 @@ class TestRequestHeadersParsing:
     async def test_should_fail_to_parse_request_headers_with_invalid_characters(self, invalid_header_key: str, invalid_char):
         data = f'GET / HTTP/1.1\r\n{invalid_header_key}: Header Value'
 
-        # invalid_char = invalid_char if invalid_char.isprintable() else f"\\x{ord(invalid_char):02x}"
         with pytest.raises(
                 InvalidHTTPHeaderKey,
                 match=re.escape(f"invalid HTTP header key {invalid_header_key!r}: character '{invalid_char}' is not accepted")
