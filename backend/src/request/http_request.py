@@ -82,6 +82,51 @@ def parse_headers(request_headers: str) -> Tuple[
     return method, url, protocol, headers
 
 
+def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optional[bytes]:
+    # length := 0
+    # read chunk-size, chunk-ext (if any), and CRLF
+    # while (chunk-size > 0) {
+        # read chunk-data and CRLF
+        # append chunk-data to content
+        # length := length + chunk-size
+        # read chunk-size, chunk-ext (if any), and CRLF
+    # }
+    # read trailer field
+    # while (trailer field is not empty) {
+    #   if (trailer fields are stored/forwarded separately) {
+    #       append trailer field to existing trailer fields
+    #   }
+    #   else if (trailer field is understood and defined as mergeable) {
+    #       merge trailer field with existing header fields
+    #   }
+    #   else {
+    #       discard trailer field
+    #   }
+    #   read trailer field
+    # }
+    # Content-Length := length
+    # Remove "chunked" from Transfer-Encoding
+
+    while b"\r\n" in body_buffer:
+        chunk_data = client_connection.recv(1024)
+        body_buffer += chunk_data
+
+    while True:
+        chunk_split = body_buffer.split(b"\r\n")
+        chunk_size = int(chunk_split.pop(0))
+
+        body_chunk = b""
+        while len(body_chunk) < chunk_size:
+            body_chunk += chunk_split.pop(0)
+            
+
+        if len(chunk_data) == 0:
+            break
+
+        body_buffer += chunk_data
+        chunk_data = client_connection.recv(1024)
+
+
 class HTTPRequest:
     method: HTTPRequestMethod
     url: str
@@ -98,24 +143,22 @@ class HTTPRequest:
         self.headers = headers
         self.body = None
 
-    def parse_body(self, client_connection: socket, body: bytes) -> Optional[str]:
+    def parse_body(self, client_connection: socket, body_buffer: bytes) -> Optional[str]:
         # keys are already lower case from "parse_headers" function
         transfer_encoding = self.headers.get("transfer-encoding", None)
         content_length = self.headers.get("content-length", None)
 
         # TODO: Wrong Chunked Parsing:
         #  1. Need to parse each chunk as declared on length prefix in hex
+
+        body = b""
         if transfer_encoding is not None:
             if len(transfer_encoding) != 1:
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
 
             transfer_encoding = transfer_encoding[0]
             if transfer_encoding.lower() == "chunked":
-                while True:
-                    chunk_data = client_connection.recv(1024)
-                    if len(chunk_data) == 0:
-                        break
-                    body += chunk_data
+                body = parse_chunked_body(client_connection, body_buffer)
             elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
             else:
@@ -133,27 +176,24 @@ class HTTPRequest:
                 elif content_length > self.MAX_BODY_SIZE:
                     raise BodyTooLarge(max_body_size=self.MAX_BODY_SIZE, content_length=content_length)
 
-            if content_length == 0:
-                body = b""
-            else:
-                while len(body) < content_length:
+            if content_length > 0:
+                while len(body_buffer) < content_length:
                     chunk_data = client_connection.recv(1024)
                     if not chunk_data:
                         break
-                    body += chunk_data
+                    body_buffer += chunk_data
 
-                if len(body) < content_length:
-                    raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+                if len(body_buffer) < content_length:
+                    raise InvalidBodyLength(body_length=len(body_buffer), expected_length=content_length)
                 else:
-                    body = body[:content_length] if content_length > 0 else b""
+                    body = body_buffer[:content_length]
 
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
 
         try:
-            body = body.decode(encoding="UTF-8", errors="strict") if body else None
+            self.body = body.decode(encoding="UTF-8", errors="strict") if body else None
         except UnicodeDecodeError:
             raise InvalidDecoding()
 
-        self.body = body if body else None
         return self.body
