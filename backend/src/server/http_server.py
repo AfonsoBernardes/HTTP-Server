@@ -74,7 +74,6 @@ class HTTPServer(TCPServer):
             except ValueError:
                 raise InvalidRequest()
 
-            # TODO: Review how we parse headers with whitespaces
             method, url, protocol, headers = parse_headers(request_headers=headers)
             http_request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
