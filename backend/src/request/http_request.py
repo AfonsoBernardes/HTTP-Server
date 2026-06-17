@@ -86,10 +86,10 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
     # length := 0
     # read chunk-size, chunk-ext (if any), and CRLF
     # while (chunk-size > 0) {
-        # read chunk-data and CRLF
-        # append chunk-data to content
-        # length := length + chunk-size
-        # read chunk-size, chunk-ext (if any), and CRLF
+    # read chunk-data and CRLF
+    # append chunk-data to content
+    # length := length + chunk-size
+    # read chunk-size, chunk-ext (if any), and CRLF
     # }
     # read trailer field
     # while (trailer field is not empty) {
@@ -107,24 +107,25 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
     # Content-Length := length
     # Remove "chunked" from Transfer-Encoding
 
-    while b"\r\n" in body_buffer:
-        chunk_data = client_connection.recv(1024)
-        body_buffer += chunk_data
-
+    raw_body = b""
     while True:
+        while b"\r\n" not in body_buffer:
+            body_buffer += client_connection.recv(1024)
+
         chunk_split = body_buffer.split(b"\r\n")
+
         chunk_size = int(chunk_split.pop(0))
+        if chunk_size == 0:
+            break
 
         body_chunk = b""
         while len(body_chunk) < chunk_size:
             body_chunk += chunk_split.pop(0)
-            
 
-        if len(chunk_data) == 0:
-            break
+        if len(body_chunk) > chunk_size:
+            raise
 
-        body_buffer += chunk_data
-        chunk_data = client_connection.recv(1024)
+        body_buffer += client_connection.recv(1024)
 
 
 class HTTPRequest:
@@ -151,14 +152,14 @@ class HTTPRequest:
         # TODO: Wrong Chunked Parsing:
         #  1. Need to parse each chunk as declared on length prefix in hex
 
-        body = b""
+        raw_body = b""
         if transfer_encoding is not None:
             if len(transfer_encoding) != 1:
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
 
             transfer_encoding = transfer_encoding[0]
             if transfer_encoding.lower() == "chunked":
-                body = parse_chunked_body(client_connection, body_buffer)
+                raw_body = parse_chunked_body(client_connection, body_buffer)
             elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
             else:
@@ -186,13 +187,13 @@ class HTTPRequest:
                 if len(body_buffer) < content_length:
                     raise InvalidBodyLength(body_length=len(body_buffer), expected_length=content_length)
                 else:
-                    body = body_buffer[:content_length]
+                    raw_body = body_buffer[:content_length]
 
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
 
         try:
-            self.body = body.decode(encoding="UTF-8", errors="strict") if body else None
+            self.body = raw_body.decode(encoding="UTF-8", errors="strict") if raw_body else None
         except UnicodeDecodeError:
             raise InvalidDecoding()
 
