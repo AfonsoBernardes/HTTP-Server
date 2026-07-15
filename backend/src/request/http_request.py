@@ -127,6 +127,7 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
 
         body_buffer += client_connection.recv(1024)
 
+
 def read_exact():
     return
 
