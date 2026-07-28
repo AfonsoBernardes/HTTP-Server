@@ -1,3 +1,3 @@
 <div align="center">
-  <h1>Simple HTTP Server</h1>
+  <h1>Simple HTTP Server from Scratch</h1>
 </div>
