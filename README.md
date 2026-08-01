@@ -3,7 +3,7 @@
 </div>
 
 <div>
-  <p>As Software engineers, we're used to work with libraries, frameworks and other tools full of functionality to make our lives easier. These tools can make it so we focus too much on how the tool itself works and forget to pay attention to the underlying concepts.</p>
+    <p>As Software Engineers, we're used to working with libraries, frameworks and other tools full of functionality to make our lives easier. These tools can make it so we focus too much on how the tool itself works and forget to pay attention to the underlying concepts.</p>
     <p>Having worked with web frameworks, such as FastAPI, to build APIs for production grade applications, I noticed my knowledge of how these requests/ responses are actually received, parsed and routed was lacking.</p>
 </div>
 
