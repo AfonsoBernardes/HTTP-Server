@@ -3,8 +3,8 @@
 </div>
 
 <div>
-    <p>As Software Engineers, we're used to working with libraries, frameworks and other tools full of functionality to make our lives easier. These tools can make it so we focus too much on how the tool itself works and forget to pay attention to the underlying concepts.</p>
-    <p>Having worked with web frameworks, such as FastAPI, to build APIs for production grade applications, I noticed my knowledge of how these requests/ responses are actually received, parsed and routed was lacking.</p>
+    <p>As Software Engineers, we're used to working with libraries, frameworks and now AI which make our lives easier than never. These tools can make it so we focus too much on how the tool itself works or the output it gives us, forgetting to pay attention to the underlying concepts. Having worked with web frameworks, such as FastAPI, to build APIs for production grade applications, I noticed my knowledge of how HTTP requests/ responses are actually received, parsed and routed was lacking.</p>
+    <p></p>
 </div>
 
 <div>
