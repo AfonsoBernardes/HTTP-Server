@@ -114,7 +114,9 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
 
         chunk_split = body_buffer.split(b"\r\n")
 
-        chunk_size = int(chunk_split.pop(0))
+        chunk_size_line = chunk_split.pop(0)
+        chunk_size, _ = chunk_size_line.split(b";", maxsplit=1)  # ignore extensions
+        chunk_size = int(chunk_size, 16)
         if chunk_size == 0:
             break
 
