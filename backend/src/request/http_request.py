@@ -112,26 +112,29 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
         while b"\r\n" not in body_buffer:
             body_buffer += client_connection.recv(1024)
 
-        chunk_split = body_buffer.split(b"\r\n")
+        chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
 
-        chunk_size_line = chunk_split.pop(0)
         chunk_size, _ = chunk_size_line.split(b";", maxsplit=1)  # ignore extensions
         chunk_size = int(chunk_size, 16)
         if chunk_size == 0:
+            while b"\r\n\r\n" not in body_buffer:
+                body_buffer += client_connection.recv(1024)
+
+            body_buffer = b""  # ignore trailer sections, clear buffer
             break
 
-        body_chunk = b""
-        while len(body_chunk) < chunk_size:
-            body_chunk += chunk_split.pop(0)
+        body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
+        read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
 
-        if len(body_chunk) > chunk_size:
-            raise
 
+def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -> Tuple[bytes, bytes]:
+    while len(body_buffer) < chunk_size:
         body_buffer += client_connection.recv(1024)
 
+    body_chunk = body_buffer[:chunk_size]
+    body_buffer = body_buffer[chunk_size:]
 
-def read_exact():
-    return
+    return body_chunk, body_buffer
 
 
 class HTTPRequest:
