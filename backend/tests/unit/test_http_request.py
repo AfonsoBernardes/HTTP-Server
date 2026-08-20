@@ -193,32 +193,6 @@ class TestRequestHeadersParsing:
 
 class TestRequestBodyParsing:
     @pytest.mark.parametrize(
-        "method, url, protocol, headers, bytes_body, expected_body",
-        [
-            (HTTPRequestMethod.GET, "/", HTTPProtocol.HTTP_1_1, {}, b"", None),
-            (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["0"]}, b"", None),
-            (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["20"]}, b"Correct body length.", "Correct body length."),
-            (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["8"]}, b"Big body to be cut.", "Big body"),
-        ],
-    )
-    @pytest.mark.asyncio
-    async def test_should_parse_valid_request_body(
-            self,
-            method: HTTPRequestMethod,
-            url: str,
-            protocol: HTTPProtocol,
-            headers: Dict[str, str | List[str]],
-            bytes_body: bytes,
-            expected_body: Optional[str],
-    ):
-        fake_connection = FakeSocket([])
-
-        request = HTTPRequest(method, url, protocol, headers)
-        request.parse_body(fake_connection, bytes_body)
-
-        assert_equal(request.body, expected_body)
-
-    @pytest.mark.parametrize(
         "request_method",
         [
             HTTPRequestMethod.POST,
@@ -266,6 +240,32 @@ class TestRequestBodyParsing:
 
 
     class TestRequestBodyTransferEncodingParsing:
+        # @pytest.mark.parametrize(
+        #     "method, url, protocol, headers, bytes_body, expected_body",
+        #     [
+        #         (HTTPRequestMethod.GET, "/", HTTPProtocol.HTTP_1_1, {}, b"", None),
+        #         (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"", None),
+        #         (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"", ""),
+        #         (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"", ""),
+        #     ],
+        # )
+        # @pytest.mark.asyncio
+        # async def test_should_parse_valid_request_body_with_transfer_encoding(
+        #         self,
+        #         method: HTTPRequestMethod,
+        #         url: str,
+        #         protocol: HTTPProtocol,
+        #         headers: Dict[str, str | List[str]],
+        #         bytes_body: bytes,
+        #         expected_body: Optional[str],
+        # ):
+        #     fake_connection = FakeSocket([])
+        #
+        #     request = HTTPRequest(method, url, protocol, headers)
+        #     request.parse_body(fake_connection, bytes_body)
+        #
+        #     assert_equal(request.body, expected_body)
+
         @pytest.mark.parametrize(
             "unsupported_transfer_encoding",
             [
@@ -323,6 +323,32 @@ class TestRequestBodyParsing:
 
 
     class TestRequestBodyContentLengthParsing:
+        @pytest.mark.parametrize(
+            "method, url, protocol, headers, bytes_body, expected_body",
+            [
+                (HTTPRequestMethod.GET, "/", HTTPProtocol.HTTP_1_1, {}, b"", None),
+                (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["0"]}, b"", None),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["20"]}, b"Correct body length.", "Correct body length."),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["8"]}, b"Big body to be cut.", "Big body"),
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_parse_valid_request_body_with_content_length(
+                self,
+                method: HTTPRequestMethod,
+                url: str,
+                protocol: HTTPProtocol,
+                headers: Dict[str, str | List[str]],
+                bytes_body: bytes,
+                expected_body: Optional[str],
+        ):
+            fake_connection = FakeSocket([])
+
+            request = HTTPRequest(method, url, protocol, headers)
+            request.parse_body(fake_connection, bytes_body)
+
+            assert_equal(request.body, expected_body)
+
         @pytest.mark.parametrize(
             "invalid_content_length",
             [
