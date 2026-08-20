@@ -120,11 +120,14 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
             while b"\r\n\r\n" not in body_buffer:
                 body_buffer += client_connection.recv(1024)
 
-            body_buffer = b""  # ignore trailer sections, clear buffer
+            _, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)  # ignore trailer sections, clear buffer
             break
 
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
+        raw_body += body_chunk
         read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
+
+    return raw_body
 
 
 def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -> Tuple[bytes, bytes]:
