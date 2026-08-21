@@ -113,11 +113,10 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
             body_buffer += client_connection.recv(1024)
 
         chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
-
         chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
         chunk_size = int(chunk_size, 16)
         if chunk_size == 0:
-            while b"\r\n\r\n" not in body_buffer:
+            while b"\r\n" not in body_buffer:
                 body_buffer += client_connection.recv(1024)
 
             _, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)  # ignore trailer sections, clear buffer
