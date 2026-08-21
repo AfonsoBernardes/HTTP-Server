@@ -114,7 +114,7 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
 
         chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
 
-        chunk_size, _ = chunk_size_line.split(b";", maxsplit=1)  # ignore extensions
+        chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
         chunk_size = int(chunk_size, 16)
         if chunk_size == 0:
             while b"\r\n\r\n" not in body_buffer:
@@ -160,9 +160,6 @@ class HTTPRequest:
         # keys are already lower case from "parse_headers" function
         transfer_encoding = self.headers.get("transfer-encoding", None)
         content_length = self.headers.get("content-length", None)
-
-        # TODO: Wrong Chunked Parsing:
-        #  1. Need to parse each chunk as declared on length prefix in hex
 
         raw_body = b""
         if transfer_encoding is not None:
