@@ -113,6 +113,7 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
             body_buffer += client_connection.recv(1024)
 
         chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+
         chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
         chunk_size = int(chunk_size, 16)
         if chunk_size == 0:
@@ -124,7 +125,7 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
 
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
         raw_body += body_chunk
-        read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
+        _, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
 
     return raw_body
 
