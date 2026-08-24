@@ -91,18 +91,28 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
         chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
 
         chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
-        chunk_size = int(chunk_size, 16)
-        if chunk_size == 0:
-            while b"\r\n" not in body_buffer:
-                body_buffer += client_connection.recv(1024)
+        try:
+            chunk_size = int(chunk_size, 16)
+        except:
+            raise # invalid chunk size
 
-            _, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)  # ignore trailer sections, clear buffer
+        if chunk_size == 0:
+            while True:
+                while b"\r\n" not in body_buffer:
+                    body_buffer += client_connection.recv(1024)
+
+                # check if current request has trailer sections to be discarded
+                current_request_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+                if current_request_line == b"":
+                    # buffer is clean, contains only subsequent request data
+                    break
             break
 
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
         raw_body += body_chunk
         _, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
 
+    # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
     return raw_body
 
 
@@ -173,6 +183,8 @@ class HTTPRequest:
                     raise InvalidBodyLength(body_length=len(body_buffer), expected_length=content_length)
                 else:
                     raw_body = body_buffer[:content_length]
+                    # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
+                    body_buffer = body_buffer[content_length:]
 
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
