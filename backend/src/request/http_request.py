@@ -13,7 +13,7 @@ from request.exceptions import (
     InvalidHTTPProtocol,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding,
+    UnsupportedTransferEncoding, InvalidChunkSize,
 )
 from request.schema import HTTPRequestMethod
 from server.exceptions import InvalidDecoding
@@ -94,7 +94,7 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
         try:
             chunk_size = int(chunk_size, 16)
         except:
-            raise # invalid chunk size
+            raise InvalidChunkSize(chunk_size)
 
         if chunk_size == 0:
             while True:

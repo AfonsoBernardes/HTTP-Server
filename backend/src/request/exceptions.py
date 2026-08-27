@@ -68,6 +68,13 @@ class InvalidTransferEncoding(HTTPServerException):
         transfer_encoding_string = f": {transfer_encoding!r}" if transfer_encoding else ""
         super().__init__(f"'Transfer-Encoding'{transfer_encoding_string} is not valid")
 
+class InvalidChunkSize(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, chunk_size: Optional[Any]):
+        chunk_size_string = f"{chunk_size!r}" if chunk_size else ""
+        super().__init__(f"chunk size must be a positive integer, got {chunk_size_string}")
+
 
 class InvalidContentLength(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
