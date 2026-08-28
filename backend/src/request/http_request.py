@@ -6,6 +6,7 @@ from request.exceptions import (
     BodyTooLarge,
     DuplicateHTTPHeader,
     InvalidBodyLength,
+    InvalidChunkSize,
     InvalidContentLength,
     InvalidHTTPHeaderKey,
     InvalidHTTPHeaders,
@@ -13,7 +14,7 @@ from request.exceptions import (
     InvalidHTTPProtocol,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding, InvalidChunkSize,
+    UnsupportedTransferEncoding,
 )
 from request.schema import HTTPRequestMethod
 from server.exceptions import InvalidDecoding
