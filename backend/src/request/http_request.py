@@ -92,7 +92,10 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
 
         chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
         try:
+            chunk_size = chunk_size.decode(encoding="UTF-8", errors="strict")
             chunk_size = int(chunk_size, 16)
+        except UnicodeDecodeError:
+            raise InvalidDecoding()
         except:
             raise InvalidChunkSize(chunk_size)
 
