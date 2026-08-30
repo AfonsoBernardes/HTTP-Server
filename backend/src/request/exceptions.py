@@ -74,7 +74,7 @@ class InvalidChunkSize(HTTPServerException):
 
     def __init__(self, chunk_size: Optional[Any]):
         chunk_size_string = f"{chunk_size!r}" if chunk_size else ""
-        super().__init__(f"chunk size must be a positive integer in hexadecimal format, got {chunk_size_string}")
+        super().__init__(f"chunk size must be a positive integer in hexadecimal format, got {chunk_size_string!r}")
 
 
 class InvalidContentLength(HTTPServerException):
