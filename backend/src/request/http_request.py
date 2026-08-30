@@ -22,7 +22,7 @@ from server.schema import HTTPProtocol
 
 INVALID_HEADER_KEY_CHARS = re.compile(r'[\x00-\x1f\x7f\s()<>@,;:\\"/\[\]?={}]')
 
-VALID_CHUNK_SIZE = re.compile(rb'^[0-9A-Fa-f]+$')
+VALID_CHUNK_SIZE = re.compile(rb"^[0-9A-Fa-f]+$")
 
 SINGLE_VALUE_HEADERS = {
     "content-length",
