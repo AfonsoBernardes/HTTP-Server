@@ -22,6 +22,8 @@ from server.schema import HTTPProtocol
 
 INVALID_HEADER_KEY_CHARS = re.compile(r'[\x00-\x1f\x7f\s()<>@,;:\\"/\[\]?={}]')
 
+VALID_CHUNK_SIZE = re.compile(rb'^[0-9A-Fa-f]+$')
+
 SINGLE_VALUE_HEADERS = {
     "content-length",
     "content-type",
@@ -92,14 +94,10 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
         chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
 
         chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
-        try:
-            chunk_size = chunk_size.decode(encoding="UTF-8", errors="strict")
-            chunk_size = int(chunk_size, 16)
-        except UnicodeDecodeError:
-            raise InvalidDecoding()
-        except:
+        if not chunk_size or not VALID_CHUNK_SIZE.fullmatch(chunk_size):
             raise InvalidChunkSize(chunk_size)
 
+        chunk_size = int(chunk_size.decode("ascii"), 16)
         if chunk_size == 0:
             while True:
                 while b"\r\n" not in body_buffer:
