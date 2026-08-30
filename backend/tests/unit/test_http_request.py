@@ -15,7 +15,7 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
-    InvalidTransferEncoding, InvalidHTTPHeaderKey,
+    InvalidTransferEncoding, InvalidHTTPHeaderKey, InvalidChunkSize,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -246,12 +246,14 @@ class TestRequestBodyParsing:
                 (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"0\r\n\r\n", None),
                 (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"0\r\n\r\nGET", None),  # contains start of next request
                 (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1\r\nA\r\n0\r\n\r\n", "A"),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"001\r\nA\r\n0\r\n\r\n", "A"),  # leading zeros
                 (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"2\r\nAB\r\n0\r\n\r\n", "AB"),
                 (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"2\r\nAB\r\n1\r\nC\r\n0\r\n\r\n", "ABC"),
                 (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"B\r\nABCDEFGHIJK\r\n0\r\n\r\n", "ABCDEFGHIJK"),
+                (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"b\r\nABCDEFGHIJK\r\n0\r\n\r\n", "ABCDEFGHIJK"),  # upper and lower case should be the same
                 (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"A\r\nABCDEFGHIJ\r\n1\r\nK\r\n0\r\n\r\n", "ABCDEFGHIJK"),
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1;extension=something\r\nA\r\n0\r\n\r\n", "A"),
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1\r\nA\r\n0\r\nExpires: Date\r\nX-Checksum: something\r\n\r\n", "A"),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1;extension=something\r\nA\r\n0\r\n\r\n", "A"),  # ignore extensions
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1\r\nA\r\n0\r\nExpires: Date\r\nX-Checksum: something\r\n\r\n", "A"),  # ignore trailer-fields
                 (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1;extension=something\r\nA\r\n0\r\nExpires: Date\r\n\r\nGET", "A"),  # contains start of next request
             ],
         )
@@ -326,6 +328,40 @@ class TestRequestBodyParsing:
                     match=re.escape(f"'Transfer-Encoding'{transfer_encoding_string} is not valid")
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=b"")
+
+        @pytest.mark.parametrize(
+            "invalid_chunk_size, invalid_chunk_size_string",
+            [
+                (b"", b''),
+                (b";extension=no-size", b''),
+                (b"g", b"g"),
+                (b" 1", b" 1"),  # leading space
+                (b"1 ", b"1 "),  #trailing space
+                (b"-1", b"-1"),  # sign not allowed
+                (b"+1", b"+1"),
+                (b"1_a", b"1_a"),  # separator not allowed
+                (b"0x1_a", b"0x1_a")  # prefix against chunk size grammar
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_fail_to_handle_request_with_invalid_chunk_size(self, invalid_chunk_size: bytes, invalid_chunk_size_string: str):
+            fake_connection = FakeSocket([])
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]},
+            )
+
+            body_buffer = invalid_chunk_size + b"\r\nA\r\n0\r\n\r\n"
+
+            invalid_chunk_size_string = f'"{invalid_chunk_size_string}"' if invalid_chunk_size_string else ''
+            with pytest.raises(
+                    InvalidChunkSize,
+                    match=re.escape(f'chunk size must be a positive integer in hexadecimal format, got {invalid_chunk_size_string}')
+            ):
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
 
 
     class TestRequestBodyContentLengthParsing:
