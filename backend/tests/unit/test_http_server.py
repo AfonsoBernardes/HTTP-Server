@@ -16,7 +16,7 @@ from request.exceptions import (
     InvalidContentLength,
     InvalidBodyLength,
     BodyTooLarge,
-    UnspecifiedBodyLength,
+    UnspecifiedBodyLength, InvalidChunkSize,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
@@ -324,8 +324,10 @@ class TestServerBodyHandling:
     @pytest.mark.parametrize(
         "bytes_request",
         [
-            b"GET / HTTP/1.1\r\nContent-Length: 0\r\n\r\n",
-            b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nCorrect body length.",
+            b"POST / HTTP/1.1\r\nContent-Length: 0\r\n\r\n",
+            b"POST / HTTP/1.1\r\nContent-Length: 20\r\n\r\nCorrect body length.",
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n\r\n",
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nA\r\n0\r\n\r\n",
         ],
     )
     @pytest.mark.asyncio
@@ -341,7 +343,7 @@ class TestServerBodyHandling:
     async def test_should_fail_to_handle_request_with_invalid_body_length(self, caplog):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
-            b"GET / HTTP/1.1\r\nContent-Length: 20\r\n\r\nShorter than twenty",
+            b"POST / HTTP/1.1\r\nContent-Length: 20\r\n\r\nShorter than twenty",
         ])
 
         with caplog.at_level(logging.ERROR):
@@ -354,11 +356,12 @@ class TestServerBodyHandling:
     @pytest.mark.parametrize(
         "invalid_body_encoding",
         [
-            b"GET / HTTP/1.1\r\nContent-Length: 1\r\n\r\n\xff",
-            b"GET / HTTP/1.1\r\nContent-Length: 1\r\n\r\n\x80",
-            b"GET / HTTP/1.1\r\nContent-Length: 1\r\n\r\n\xc3",
-            b"GET / HTTP/1.1\r\nContent-Length: 4\r\n\r\n\xf0\x28\x8c\xbc",
-            b"GET / HTTP/1.1\r\nContent-Length: 3\r\n\r\n\xff\xfe\xfa",
+            b"POST / HTTP/1.1\r\nContent-Length: 1\r\n\r\n\xff",
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n1\r\n\xff\r\n0\r\n\r\n",
+            b"POST / HTTP/1.1\r\nContent-Length: 1\r\n\r\n\x80",
+            b"POST / HTTP/1.1\r\nContent-Length: 1\r\n\r\n\xc3",
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n4\r\n\xf0\x28\x8c\xbc\r\n0\r\n\r\n",
+            b"POST / HTTP/1.1\r\nContent-Length: 3\r\n\r\n\xff\xfe\xfa",
         ],
     )
     @pytest.mark.asyncio
@@ -373,6 +376,34 @@ class TestServerBodyHandling:
 
         assert_equal(response.status_code, InvalidDecoding.status_code)
         assert_in(InvalidDecoding().base_message, caplog.text)
+
+
+    @pytest.mark.parametrize(
+        "invalid_body_encoding, invalid_chunk_size",
+        [
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n\r\n\r\n", ""),
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n;extension=something\r\n\r\n", ""),
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\ng\r\nA\r\n0\r\n\r\n", b"g"),
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n 1\r\nA\r\n0\r\n\r\n", b" 1"),
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n1 \r\nA\r\n0\r\n\r\n", b"1 "),
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n-1\r\nA\r\n0\r\n\r\n", b"-1"),
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n+1\r\nA\r\n0\r\n\r\n", b"+1"),
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n1_a\r\nA\r\n0\r\n\r\n", b"1_a"),
+            (b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n0x1\r\nA\r\n0\r\n\r\n", b"0x1"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_bchunk_size(self, caplog, invalid_body_encoding: bytes, invalid_chunk_size: str):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            invalid_body_encoding,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidChunkSize.status_code)
+        assert_in(InvalidChunkSize(invalid_chunk_size).base_message, caplog.text)
 
 
 class TestServerRouting:

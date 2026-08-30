@@ -340,7 +340,7 @@ class TestRequestBodyParsing:
                 (b"-1", b"-1"),  # sign not allowed
                 (b"+1", b"+1"),
                 (b"1_a", b"1_a"),  # separator not allowed
-                (b"0x1_a", b"0x1_a")  # prefix against chunk size grammar
+                (b"0x1", b"0x1")  # prefix against chunk size grammar
             ],
         )
         @pytest.mark.asyncio
