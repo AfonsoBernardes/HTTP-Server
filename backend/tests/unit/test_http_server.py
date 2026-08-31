@@ -299,6 +299,26 @@ class TestServerHeaderHandling:
         assert_in(BodyTooLarge(max_body_size=1024*1024, body_size=large_content_length).base_message, caplog.text)
 
     @pytest.mark.parametrize(
+        "headers, large_chunk_size",
+        [
+            (b"GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n98967F\r\nA\r\n0\r\n\r\n", 9999999),
+            (b"GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n100001\r\nA\r\n0\r\n\r\n", 1048577)
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_too_large_chunk_size(self, caplog, headers: bytes, large_chunk_size: int):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            headers,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, BodyTooLarge.status_code)
+        assert_in(BodyTooLarge(max_body_size=1024*1024, body_size=large_chunk_size).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
         "request_line, request_method",
         [
             (b"POST / HTTP/1.1\r\n\r\n", HTTPRequestMethod.POST),
