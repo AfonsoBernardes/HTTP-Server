@@ -96,18 +96,16 @@ class InvalidBodyLength(HTTPServerException):
 class ChunkSizeTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
 
-    def __init__(self, chunk_size: int):
-        super().__init__(
-            f"expected a chunk size smaller than {DEFAULT_LIMITS.max_chunk_size!r} bytes, got {chunk_size!r} bytes"
-        )
+    def __init__(self, chunk_size: int, max_chunk_size: Optional[int] = DEFAULT_LIMITS.max_chunk_size):
+        super().__init__(f"expected a chunk size smaller than {max_chunk_size!r} bytes, got {chunk_size!r} bytes")
 
 
 class BodyTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
 
-    def __init__(self, body_size: int):
+    def __init__(self, body_size: int, max_body_size: Optional[int] = DEFAULT_LIMITS.max_body_size):
         super().__init__(
-            f"expected a body size smaller than {DEFAULT_LIMITS.max_body_size!r} bytes, got {body_size!r} bytes"
+            f"expected a body size smaller than {max_body_size!r} bytes, got {body_size!r} bytes"
         )
 
 
