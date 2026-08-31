@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 from displayable_exceptions.http_exception import HTTPServerException
 from request.schema import HTTPRequestMethod
 from response.schema import HTTPResponseStatusCode
+from server.config import DEFAULT_LIMITS
 from server.schema import HTTPProtocol
 
 
@@ -92,11 +93,18 @@ class InvalidBodyLength(HTTPServerException):
         super().__init__(f"expected body with length {expected_length}, got {body_length} bytes")
 
 
+class ChunkSizeTooLarge(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_413
+
+    def __init__(self, chunk_size: int):
+        super().__init__(f"expected a chunk size smaller than {DEFAULT_LIMITS.max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+
+
 class BodyTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
 
-    def __init__(self, max_body_size: int, body_size: int):
-        super().__init__(f"expected a body size smaller than {max_body_size!r} bytes, got {body_size!r} bytes")
+    def __init__(self, body_size: int):
+        super().__init__(f"expected a body size smaller than {DEFAULT_LIMITS.max_body_size!r} bytes, got {body_size!r} bytes")
 
 
 class UnspecifiedBodyLength(HTTPServerException):
