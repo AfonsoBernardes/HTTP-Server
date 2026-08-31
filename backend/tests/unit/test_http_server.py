@@ -296,7 +296,7 @@ class TestServerHeaderHandling:
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, BodyTooLarge.status_code)
-        assert_in(BodyTooLarge(max_body_size=1024*1024, content_length=large_content_length).base_message, caplog.text)
+        assert_in(BodyTooLarge(max_body_size=1024*1024, body_size=large_content_length).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, request_method",
@@ -393,7 +393,7 @@ class TestServerBodyHandling:
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_invalid_bchunk_size(self, caplog, invalid_body_encoding: bytes, invalid_chunk_size: str):
+    async def test_should_fail_to_handle_request_with_invalid_chunk_size(self, caplog, invalid_body_encoding: bytes, invalid_chunk_size: str):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
             invalid_body_encoding,
