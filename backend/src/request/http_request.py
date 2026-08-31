@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 from request.exceptions import (
     BodyTooLarge,
+    ChunkSizeTooLarge,
     DuplicateHTTPHeader,
     InvalidBodyLength,
     InvalidChunkSize,
@@ -14,7 +15,7 @@ from request.exceptions import (
     InvalidHTTPProtocol,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding, ChunkSizeTooLarge,
+    UnsupportedTransferEncoding,
 )
 from request.schema import HTTPRequestMethod
 from server.config import DEFAULT_LIMITS, ServerLimits
