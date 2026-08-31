@@ -87,7 +87,7 @@ def parse_headers(request_headers: str) -> Tuple[
     return method, url, protocol, headers
 
 
-def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: ServerLimits) -> Optional[bytes]:
+def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS) -> Optional[bytes]:
     raw_body = b""
     while True:
         while b"\r\n" not in body_buffer:
@@ -147,7 +147,7 @@ class HTTPRequest:
         self.headers = headers
         self.body = None
 
-    def parse_body(self, client_connection: socket, body_buffer: bytes) -> Optional[str]:
+    def parse_body(self, client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS) -> Optional[str]:
         # keys are already lower case from "parse_headers" function
         transfer_encoding = self.headers.get("transfer-encoding", None)
         content_length = self.headers.get("content-length", None)
@@ -159,7 +159,7 @@ class HTTPRequest:
 
             transfer_encoding = transfer_encoding[0]
             if transfer_encoding.lower() == "chunked":
-                raw_body = parse_chunked_body(client_connection, body_buffer, DEFAULT_LIMITS)
+                raw_body = parse_chunked_body(client_connection, body_buffer, limits)
             elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
             else:
@@ -174,7 +174,7 @@ class HTTPRequest:
             else:  # can convert to integer but still invalid like negative number
                 if content_length < 0:
                     raise InvalidContentLength(content_length=content_length)
-                elif content_length > DEFAULT_LIMITS.max_body_size:
+                elif content_length > limits.max_body_size:
                     raise BodyTooLarge(content_length)
 
             if content_length > 0:

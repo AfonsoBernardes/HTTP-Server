@@ -242,6 +242,32 @@ class TestRequestBodyParsing:
         with pytest.raises(InvalidDecoding, match=re.escape("unable to decode request, make sure it is encoded with UTF-8")):
             request.parse_body(client_connection=fake_connection, body_buffer=invalid_body_encoding)
 
+    @pytest.mark.parametrize(
+        "large_chunk_size",
+        [
+            b"98967F",
+            b"500001",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_too_large_body(self, caplog, large_chunk_size: bytes):
+        fake_connection = FakeSocket([])
+
+        request = HTTPRequest(
+            method=HTTPRequestMethod.POST,
+            url="/",
+            protocol=HTTPProtocol.HTTP_1_1,
+            headers={"transfer-encoding": ["chunked"]},
+        )
+
+        body_buffer = large_chunk_size + b"\r\nA\r\n0\r\n\r\n"
+        chunk_size = int(large_chunk_size.decode("ascii"), 16)
+        with pytest.raises(
+                ChunkSizeTooLarge,
+                match=re.escape(f"expected a chunk size smaller than {DEFAULT_LIMITS.max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+        ):
+            request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
+
 
     class TestRequestBodyTransferEncodingParsing:
         @pytest.mark.parametrize(
