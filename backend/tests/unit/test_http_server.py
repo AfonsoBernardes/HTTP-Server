@@ -16,12 +16,11 @@ from request.exceptions import (
     InvalidContentLength,
     InvalidBodyLength,
     BodyTooLarge,
-    UnspecifiedBodyLength, InvalidChunkSize,
+    UnspecifiedBodyLength, InvalidChunkSize, ChunkSizeTooLarge,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
-from server.config import DEFAULT_LIMITS
 from server.exceptions import InvalidDecoding, InvalidRequest
 from server.http_server import HTTPServer
 
@@ -282,8 +281,8 @@ class TestServerHeaderHandling:
     @pytest.mark.parametrize(
         "headers, large_content_length",
         [
-            (b"GET / HTTP/1.1\r\nContent-Length: 9999999\r\n\r\n", 9999999),
-            (b"GET / HTTP/1.1\r\nContent-Length: 1048577\r\n\r\n", 1048577)
+            (b"GET / HTTP/1.1\r\nContent-Length: 99999999\r\n\r\n", 99999999),
+            (b"GET / HTTP/1.1\r\nContent-Length: 10485761\r\n\r\n", 10485761)
         ],
     )
     @pytest.mark.asyncio
@@ -297,13 +296,13 @@ class TestServerHeaderHandling:
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, BodyTooLarge.status_code)
-        assert_in(BodyTooLarge(max_body_size=DEFAULT_LIMITS.max_body_size, body_size=large_content_length).base_message, caplog.text)
+        assert_in(BodyTooLarge(body_size=large_content_length).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "headers, large_chunk_size",
         [
             (b"GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n98967F\r\nA\r\n0\r\n\r\n", 9999999),
-            (b"GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n100001\r\nA\r\n0\r\n\r\n", 1048577)
+            (b"GET / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n500001\r\nA\r\n0\r\n\r\n", 5242881)
         ],
     )
     @pytest.mark.asyncio
@@ -316,8 +315,8 @@ class TestServerHeaderHandling:
         with caplog.at_level(logging.ERROR):
             response = http_server.handle_request(fake_connection)
 
-        assert_equal(response.status_code, BodyTooLarge.status_code)
-        assert_in(BodyTooLarge(max_body_size=DEFAULT_LIMITS.max_body_size, body_size=large_chunk_size).base_message, caplog.text)
+        assert_equal(response.status_code, ChunkSizeTooLarge.status_code)
+        assert_in(ChunkSizeTooLarge(large_chunk_size).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, request_method",
