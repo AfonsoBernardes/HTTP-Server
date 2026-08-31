@@ -21,6 +21,7 @@ from request.exceptions import (
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
+from server.config import DEFAULT_LIMITS
 from server.exceptions import InvalidDecoding, InvalidRequest
 from server.http_server import HTTPServer
 
@@ -296,7 +297,7 @@ class TestServerHeaderHandling:
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, BodyTooLarge.status_code)
-        assert_in(BodyTooLarge(max_body_size=1024*1024, body_size=large_content_length).base_message, caplog.text)
+        assert_in(BodyTooLarge(max_body_size=DEFAULT_LIMITS.max_body_size, body_size=large_content_length).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "headers, large_chunk_size",
@@ -316,7 +317,7 @@ class TestServerHeaderHandling:
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, BodyTooLarge.status_code)
-        assert_in(BodyTooLarge(max_body_size=1024*1024, body_size=large_chunk_size).base_message, caplog.text)
+        assert_in(BodyTooLarge(max_body_size=DEFAULT_LIMITS.max_body_size, body_size=large_chunk_size).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, request_method",

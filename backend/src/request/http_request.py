@@ -17,6 +17,7 @@ from request.exceptions import (
     UnsupportedTransferEncoding,
 )
 from request.schema import HTTPRequestMethod
+from server.config import DEFAULT_LIMITS, ServerLimits
 from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
 
@@ -85,7 +86,7 @@ def parse_headers(request_headers: str) -> Tuple[
     return method, url, protocol, headers
 
 
-def parse_chunked_body(client_connection: socket, body_buffer: bytes, max_body_size: int) -> Optional[bytes]:
+def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: ServerLimits) -> Optional[bytes]:
     raw_body = b""
     while True:
         while b"\r\n" not in body_buffer:
@@ -98,8 +99,8 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes, max_body_s
             raise InvalidChunkSize(chunk_size)
 
         chunk_size = int(chunk_size.decode("ascii"), 16)
-        if chunk_size > max_body_size:
-            raise BodyTooLarge(max_body_size, chunk_size)
+        if chunk_size > limits.max_body_size:
+            raise BodyTooLarge(limits.max_body_size, chunk_size)
 
         if chunk_size == 0:
             while True:
@@ -138,8 +139,6 @@ class HTTPRequest:
     headers: Dict[str, List[str]]
     body: Optional[str]
 
-    MAX_BODY_SIZE = 1 * 1024 * 1024
-
     def __init__(self, method, url, protocol, headers):
         self.method = method
         self.url = url
@@ -159,7 +158,7 @@ class HTTPRequest:
 
             transfer_encoding = transfer_encoding[0]
             if transfer_encoding.lower() == "chunked":
-                raw_body = parse_chunked_body(client_connection, body_buffer, self.MAX_BODY_SIZE)
+                raw_body = parse_chunked_body(client_connection, body_buffer, DEFAULT_LIMITS)
             elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
             else:
@@ -174,8 +173,8 @@ class HTTPRequest:
             else:  # can convert to integer but still invalid like negative number
                 if content_length < 0:
                     raise InvalidContentLength(content_length=content_length)
-                elif content_length > self.MAX_BODY_SIZE:
-                    raise BodyTooLarge(max_body_size=self.MAX_BODY_SIZE, body_size=content_length)
+                elif content_length > DEFAULT_LIMITS.max_body_size:
+                    raise BodyTooLarge(max_body_size=DEFAULT_LIMITS.max_body_size, body_size=content_length)
 
             if content_length > 0:
                 while len(body_buffer) < content_length:

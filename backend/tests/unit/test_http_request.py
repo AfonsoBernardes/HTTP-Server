@@ -19,6 +19,7 @@ from request.exceptions import (
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
+from server.config import DEFAULT_LIMITS
 from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
 
@@ -385,7 +386,7 @@ class TestRequestBodyParsing:
             chunk_size = int(large_chunk_size.decode("ascii"), 16)
             with pytest.raises(
                     BodyTooLarge,
-                    match=re.escape(f"expected a body size smaller than {request.MAX_BODY_SIZE!r} bytes, got {chunk_size!r} bytes")
+                    match=re.escape(f"expected a body size smaller than {DEFAULT_LIMITS.max_body_size!r} bytes, got {chunk_size!r} bytes")
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
 
@@ -463,7 +464,7 @@ class TestRequestBodyParsing:
 
             with pytest.raises(
                     BodyTooLarge,
-                    match=re.escape(f"expected a body size smaller than {request.MAX_BODY_SIZE!r} bytes, got {large_content_length!r} bytes")
+                    match=re.escape(f"expected a body size smaller than {DEFAULT_LIMITS.max_body_size!r} bytes, got {large_content_length!r} bytes")
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
