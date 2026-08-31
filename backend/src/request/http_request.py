@@ -14,7 +14,7 @@ from request.exceptions import (
     InvalidHTTPProtocol,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding,
+    UnsupportedTransferEncoding, ChunkSizeTooLarge,
 )
 from request.schema import HTTPRequestMethod
 from server.config import DEFAULT_LIMITS, ServerLimits
@@ -99,8 +99,8 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: Se
             raise InvalidChunkSize(chunk_size)
 
         chunk_size = int(chunk_size.decode("ascii"), 16)
-        if chunk_size > limits.max_body_size:
-            raise BodyTooLarge(limits.max_body_size, chunk_size)
+        if chunk_size > limits.max_chunk_size:
+            raise ChunkSizeTooLarge(chunk_size)
 
         if chunk_size == 0:
             while True:
@@ -174,7 +174,7 @@ class HTTPRequest:
                 if content_length < 0:
                     raise InvalidContentLength(content_length=content_length)
                 elif content_length > DEFAULT_LIMITS.max_body_size:
-                    raise BodyTooLarge(max_body_size=DEFAULT_LIMITS.max_body_size, body_size=content_length)
+                    raise BodyTooLarge(content_length)
 
             if content_length > 0:
                 while len(body_buffer) < content_length:
@@ -192,6 +192,8 @@ class HTTPRequest:
 
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
+
+        # TODO: check if raw_body size is greatert than server limit -> test
 
         try:
             self.body = raw_body.decode(encoding="UTF-8", errors="strict") if raw_body else None
