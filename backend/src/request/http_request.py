@@ -85,7 +85,7 @@ def parse_headers(request_headers: str) -> Tuple[
     return method, url, protocol, headers
 
 
-def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optional[bytes]:
+def parse_chunked_body(client_connection: socket, body_buffer: bytes, max_body_size: int) -> Optional[bytes]:
     raw_body = b""
     while True:
         while b"\r\n" not in body_buffer:
@@ -98,6 +98,9 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes) -> Optiona
             raise InvalidChunkSize(chunk_size)
 
         chunk_size = int(chunk_size.decode("ascii"), 16)
+        if chunk_size > max_body_size:
+            raise BodyTooLarge(max_body_size, chunk_size)
+
         if chunk_size == 0:
             while True:
                 while b"\r\n" not in body_buffer:
@@ -156,7 +159,7 @@ class HTTPRequest:
 
             transfer_encoding = transfer_encoding[0]
             if transfer_encoding.lower() == "chunked":
-                raw_body = parse_chunked_body(client_connection, body_buffer)
+                raw_body = parse_chunked_body(client_connection, body_buffer, self.MAX_BODY_SIZE)
             elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
             else:
@@ -166,13 +169,13 @@ class HTTPRequest:
             content_length = content_length[0]
             try:
                 content_length = int(content_length)  # "Content-Length" should be unique
-            except ValueError:  # can't conver to integer, like empty string
+            except ValueError:  # can't convert to integer, like empty string
                 raise InvalidContentLength(content_length=content_length)
             else:  # can convert to integer but still invalid like negative number
                 if content_length < 0:
                     raise InvalidContentLength(content_length=content_length)
                 elif content_length > self.MAX_BODY_SIZE:
-                    raise BodyTooLarge(max_body_size=self.MAX_BODY_SIZE, content_length=content_length)
+                    raise BodyTooLarge(max_body_size=self.MAX_BODY_SIZE, body_size=content_length)
 
             if content_length > 0:
                 while len(body_buffer) < content_length:
