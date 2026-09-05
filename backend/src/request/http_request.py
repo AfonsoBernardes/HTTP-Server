@@ -194,7 +194,9 @@ class HTTPRequest:
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
 
-        # TODO: check if raw_body size is greatert than server limit -> test
+        body_size = len(raw_body) if raw_body else 0
+        if body_size > limits.max_body_size:
+            raise BodyTooLarge(body_size=body_size, max_body_size=limits.max_body_size)
 
         try:
             self.body = raw_body.decode(encoding="UTF-8", errors="strict") if raw_body else None

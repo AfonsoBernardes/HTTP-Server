@@ -22,7 +22,7 @@ from request.exceptions import (
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
-from server.config import DEFAULT_LIMITS
+from server.config import DEFAULT_LIMITS, ServerLimits
 from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
 
@@ -196,6 +196,8 @@ class TestRequestHeadersParsing:
 
 
 class TestRequestBodyParsing:
+    TEST_LIMITS = ServerLimits(max_body_size=2)
+
     @pytest.mark.parametrize(
         "request_method",
         [
@@ -242,15 +244,8 @@ class TestRequestBodyParsing:
         with pytest.raises(InvalidDecoding, match=re.escape("unable to decode request, make sure it is encoded with UTF-8")):
             request.parse_body(client_connection=fake_connection, body_buffer=invalid_body_encoding)
 
-    @pytest.mark.parametrize(
-        "large_chunk_size",
-        [
-            b"98967F",
-            b"500001",
-        ],
-    )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_too_large_body(self, caplog, large_chunk_size: bytes):
+    async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
         fake_connection = FakeSocket([])
 
         request = HTTPRequest(
@@ -260,13 +255,12 @@ class TestRequestBodyParsing:
             headers={"transfer-encoding": ["chunked"]},
         )
 
-        body_buffer = large_chunk_size + b"\r\nA\r\n0\r\n\r\n"
-        chunk_size = int(large_chunk_size.decode("ascii"), 16)
+        body_buffer = b"1\r\nA\r\n1\r\nB\r\n1\r\nC\r\n0\r\n\r\n"
         with pytest.raises(
-                ChunkSizeTooLarge,
-                match=re.escape(f"expected a chunk size smaller than {DEFAULT_LIMITS.max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+                BodyTooLarge,
+                match=re.escape(f"expected a body size smaller than {self.TEST_LIMITS.max_body_size!r} bytes, got 3 bytes")
         ):
-            request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
+            request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=self.TEST_LIMITS)
 
 
     class TestRequestBodyTransferEncodingParsing:
