@@ -79,7 +79,9 @@ class HTTPServer(TCPServer):
             http_request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
 
-            request_body = http_request.parse_body(client_connection=client_connection, body_buffer=body_buffer, limits=limits)
+            request_body = http_request.parse_body(
+                client_connection=client_connection, body_buffer=body_buffer, limits=limits
+            )
 
             request_handler = self.resolve_route(url=url, method=method)
 
