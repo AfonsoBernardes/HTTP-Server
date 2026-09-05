@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 from displayable_exceptions.http_exception import HTTPServerException
 from request.schema import HTTPRequestMethod
 from response.schema import HTTPResponseStatusCode
+from server.config import DEFAULT_LIMITS
 from server.schema import HTTPProtocol
 
 
@@ -69,6 +70,14 @@ class InvalidTransferEncoding(HTTPServerException):
         super().__init__(f"'Transfer-Encoding'{transfer_encoding_string} is not valid")
 
 
+class InvalidChunkSize(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, chunk_size: Optional[Any]):
+        chunk_size_string = f"{chunk_size!r}" if chunk_size else ""
+        super().__init__(f"chunk size must be a positive integer in hexadecimal format, got {chunk_size_string!r}")
+
+
 class InvalidContentLength(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
@@ -84,11 +93,18 @@ class InvalidBodyLength(HTTPServerException):
         super().__init__(f"expected body with length {expected_length}, got {body_length} bytes")
 
 
+class ChunkSizeTooLarge(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_413
+
+    def __init__(self, chunk_size: int, max_chunk_size: int = DEFAULT_LIMITS.max_chunk_size):
+        super().__init__(f"expected a chunk size smaller than {max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+
+
 class BodyTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
 
-    def __init__(self, max_body_size: int, content_length: int):
-        super().__init__(f"expected a body size smaller than {max_body_size!r} bytes, got {content_length!r} bytes")
+    def __init__(self, body_size: int, max_body_size: int = DEFAULT_LIMITS.max_body_size):
+        super().__init__(f"expected a body size smaller than {max_body_size!r} bytes, got {body_size!r} bytes")
 
 
 class UnspecifiedBodyLength(HTTPServerException):

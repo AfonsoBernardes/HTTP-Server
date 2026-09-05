@@ -13,6 +13,7 @@ from router.exceptions import (
     DuplicateRouterPrefix,
 )
 from router.http_router import HTTPRouter
+from server.config import DEFAULT_LIMITS, ServerLimits
 from server.exceptions import (
     InvalidDecoding,
     InvalidRequest,
@@ -53,7 +54,7 @@ class HTTPServer(TCPServer):
 
         return None
 
-    def handle_request(self, client_connection: socket) -> HTTPResponse:
+    def handle_request(self, client_connection: socket, limits: ServerLimits = DEFAULT_LIMITS) -> HTTPResponse:
         response = HTTPResponse(client_connection=client_connection)
         try:
             # data might arrive in chunks loop makes sure all headers are present in the request
@@ -74,12 +75,13 @@ class HTTPServer(TCPServer):
             except ValueError:
                 raise InvalidRequest()
 
-            # TODO: Review how we parse headers with whitespaces
             method, url, protocol, headers = parse_headers(request_headers=headers)
             http_request = HTTPRequest(method, url, protocol, headers)
             response.set_protocol(protocol)
 
-            request_body = http_request.parse_body(client_connection=client_connection, body_buffer=body_buffer)
+            request_body = http_request.parse_body(
+                client_connection=client_connection, body_buffer=body_buffer, limits=limits
+            )
 
             request_handler = self.resolve_route(url=url, method=method)
 

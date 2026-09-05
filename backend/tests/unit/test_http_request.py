@@ -15,10 +15,14 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
-    InvalidTransferEncoding, InvalidHTTPHeaderKey,
+    InvalidTransferEncoding,
+    InvalidHTTPHeaderKey,
+    InvalidChunkSize,
+    ChunkSizeTooLarge,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
+from server.config import DEFAULT_LIMITS, ServerLimits
 from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
 
@@ -153,7 +157,6 @@ class TestRequestHeadersParsing:
     async def test_should_fail_to_parse_request_headers_with_invalid_characters(self, invalid_header_key: str, invalid_char):
         data = f'GET / HTTP/1.1\r\n{invalid_header_key}: Header Value'
 
-        # invalid_char = invalid_char if invalid_char.isprintable() else f"\\x{ord(invalid_char):02x}"
         with pytest.raises(
                 InvalidHTTPHeaderKey,
                 match=re.escape(f"invalid HTTP header key {invalid_header_key!r}: character '{invalid_char}' is not accepted")
@@ -193,32 +196,6 @@ class TestRequestHeadersParsing:
 
 
 class TestRequestBodyParsing:
-    @pytest.mark.parametrize(
-        "method, url, protocol, headers, bytes_body, expected_body",
-        [
-            (HTTPRequestMethod.GET, "/", HTTPProtocol.HTTP_1_1, {}, b"", None),
-            (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["0"]}, b"", None),
-            (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["20"]}, b"Correct body length.", "Correct body length."),
-            (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["8"]}, b"Big body to be cut.", "Big body"),
-        ],
-    )
-    @pytest.mark.asyncio
-    async def test_should_parse_valid_request_body(
-            self,
-            method: HTTPRequestMethod,
-            url: str,
-            protocol: HTTPProtocol,
-            headers: Dict[str, str | List[str]],
-            bytes_body: bytes,
-            expected_body: Optional[str],
-    ):
-        fake_connection = FakeSocket([])
-
-        request = HTTPRequest(method, url, protocol, headers)
-        request.parse_body(fake_connection, bytes_body)
-
-        assert_equal(request.body, expected_body)
-
     @pytest.mark.parametrize(
         "request_method",
         [
@@ -265,8 +242,61 @@ class TestRequestBodyParsing:
         with pytest.raises(InvalidDecoding, match=re.escape("unable to decode request, make sure it is encoded with UTF-8")):
             request.parse_body(client_connection=fake_connection, body_buffer=invalid_body_encoding)
 
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
+        fake_connection = FakeSocket([])
+        test_limits = ServerLimits(max_body_size=2)
+
+        request = HTTPRequest(
+            method=HTTPRequestMethod.POST,
+            url="/",
+            protocol=HTTPProtocol.HTTP_1_1,
+            headers={"transfer-encoding": ["chunked"]},
+        )
+
+        body_buffer = b"1\r\nA\r\n1\r\nB\r\n1\r\nC\r\n0\r\n\r\n"
+        with pytest.raises(
+                BodyTooLarge,
+                match=re.escape(f"expected a body size smaller than {test_limits.max_body_size!r} bytes, got 3 bytes")
+        ):
+            request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
+
 
     class TestRequestBodyTransferEncodingParsing:
+        @pytest.mark.parametrize(
+            "method, url, protocol, headers, bytes_body, expected_body",
+            [
+                (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"0\r\n\r\n", None),
+                (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"0\r\n\r\nGET", None),  # contains start of next request
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1\r\nA\r\n0\r\n\r\n", "A"),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"001\r\nA\r\n0\r\n\r\n", "A"),  # leading zeros
+                (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"2\r\nAB\r\n0\r\n\r\n", "AB"),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"2\r\nAB\r\n1\r\nC\r\n0\r\n\r\n", "ABC"),
+                (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"B\r\nABCDEFGHIJK\r\n0\r\n\r\n", "ABCDEFGHIJK"),
+                (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"b\r\nABCDEFGHIJK\r\n0\r\n\r\n", "ABCDEFGHIJK"),  # upper and lower case should be the same
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"A\r\nABCDEFGHIJ\r\n1\r\nK\r\n0\r\n\r\n", "ABCDEFGHIJK"),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1;extension=something\r\nA\r\n0\r\n\r\n", "A"),  # ignore extensions
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1\r\nA\r\n0\r\nExpires: Date\r\nX-Checksum: something\r\n\r\n", "A"),  # ignore trailer-fields
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1;extension=something\r\nA\r\n0\r\nExpires: Date\r\n\r\nGET", "A"),  # contains start of next request
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_parse_valid_request_body_with_transfer_encoding(
+                self,
+                method: HTTPRequestMethod,
+                url: str,
+                protocol: HTTPProtocol,
+                headers: Dict[str, str | List[str]],
+                bytes_body: bytes,
+                expected_body: Optional[str],
+        ):
+            fake_connection = FakeSocket([])
+
+            request = HTTPRequest(method, url, protocol, headers)
+            request.parse_body(fake_connection, bytes_body)
+
+            assert_equal(request.body, expected_body)
+
         @pytest.mark.parametrize(
             "unsupported_transfer_encoding",
             [
@@ -322,8 +352,94 @@ class TestRequestBodyParsing:
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
+        @pytest.mark.parametrize(
+            "invalid_chunk_size, invalid_chunk_size_string",
+            [
+                (b"", b''),
+                (b";extension=no-size", b''),
+                (b"g", b"g"),
+                (b" 1", b" 1"),  # leading space
+                (b"1 ", b"1 "),  #trailing space
+                (b"-1", b"-1"),  # sign not allowed
+                (b"+1", b"+1"),
+                (b"1_a", b"1_a"),  # separator not allowed
+                (b"0x1", b"0x1")  # prefix against chunk size grammar
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_fail_to_handle_request_with_invalid_chunk_size(self, invalid_chunk_size: bytes, invalid_chunk_size_string: str):
+            fake_connection = FakeSocket([])
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]},
+            )
+
+            body_buffer = invalid_chunk_size + b"\r\nA\r\n0\r\n\r\n"
+
+            invalid_chunk_size_string = f'"{invalid_chunk_size_string}"' if invalid_chunk_size_string else ''
+            with pytest.raises(
+                    InvalidChunkSize,
+                    match=re.escape(f'chunk size must be a positive integer in hexadecimal format, got {invalid_chunk_size_string}')
+            ):
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
+
+        @pytest.mark.parametrize(
+            "large_chunk_size",
+            [
+                b"98967F",
+                b"500001",
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_fail_to_handle_request_with_too_large_chunk_size(self, caplog, large_chunk_size: bytes):
+            fake_connection = FakeSocket([])
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]},
+            )
+
+            body_buffer = large_chunk_size + b"\r\nA\r\n0\r\n\r\n"
+            chunk_size = int(large_chunk_size.decode("ascii"), 16)
+            with pytest.raises(
+                    ChunkSizeTooLarge,
+                    match=re.escape(f"expected a chunk size smaller than {DEFAULT_LIMITS.max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+            ):
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
+
 
     class TestRequestBodyContentLengthParsing:
+        @pytest.mark.parametrize(
+            "method, url, protocol, headers, bytes_body, expected_body",
+            [
+                (HTTPRequestMethod.GET, "/", HTTPProtocol.HTTP_1_1, {}, b"", None),
+                (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["0"]}, b"", None),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["20"]}, b"Correct body length.", "Correct body length."),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["8"]}, b"Big body to be cut.", "Big body"),
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_parse_valid_request_body_with_content_length(
+                self,
+                method: HTTPRequestMethod,
+                url: str,
+                protocol: HTTPProtocol,
+                headers: Dict[str, str | List[str]],
+                bytes_body: bytes,
+                expected_body: Optional[str],
+        ):
+            fake_connection = FakeSocket([])
+
+            request = HTTPRequest(method, url, protocol, headers)
+            request.parse_body(fake_connection, bytes_body)
+
+            assert_equal(request.body, expected_body)
+
         @pytest.mark.parametrize(
             "invalid_content_length",
             [
@@ -353,8 +469,8 @@ class TestRequestBodyParsing:
         @pytest.mark.parametrize(
             "large_content_length",
             [
-                9999999,
-                1048577,
+                99999999,
+                10485761,
             ],
         )
         @pytest.mark.asyncio
@@ -370,7 +486,7 @@ class TestRequestBodyParsing:
 
             with pytest.raises(
                     BodyTooLarge,
-                    match=re.escape(f"expected a body size smaller than {request.MAX_BODY_SIZE!r} bytes, got {large_content_length!r} bytes")
+                    match=re.escape(f"expected a body size smaller than {DEFAULT_LIMITS.max_body_size!r} bytes, got {large_content_length!r} bytes")
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=b"")
 

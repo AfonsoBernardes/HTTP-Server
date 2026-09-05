@@ -4,8 +4,10 @@ from typing import Dict, List, Optional, Tuple
 
 from request.exceptions import (
     BodyTooLarge,
+    ChunkSizeTooLarge,
     DuplicateHTTPHeader,
     InvalidBodyLength,
+    InvalidChunkSize,
     InvalidContentLength,
     InvalidHTTPHeaderKey,
     InvalidHTTPHeaders,
@@ -16,10 +18,13 @@ from request.exceptions import (
     UnsupportedTransferEncoding,
 )
 from request.schema import HTTPRequestMethod
+from server.config import DEFAULT_LIMITS, ServerLimits
 from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
 
 INVALID_HEADER_KEY_CHARS = re.compile(r'[\x00-\x1f\x7f\s()<>@,;:\\"/\[\]?={}]')
+
+VALID_CHUNK_SIZE = re.compile(rb"^[0-9A-Fa-f]+$")
 
 SINGLE_VALUE_HEADERS = {
     "content-length",
@@ -82,14 +87,60 @@ def parse_headers(request_headers: str) -> Tuple[
     return method, url, protocol, headers
 
 
+def parse_chunked_body(
+    client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
+) -> Optional[bytes]:
+    raw_body = b""
+    while True:
+        while b"\r\n" not in body_buffer:
+            body_buffer += client_connection.recv(1024)
+
+        chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+
+        chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
+        if not chunk_size or not VALID_CHUNK_SIZE.fullmatch(chunk_size):
+            raise InvalidChunkSize(chunk_size)
+
+        chunk_size = int(chunk_size.decode("ascii"), 16)
+        if chunk_size > limits.max_chunk_size:
+            raise ChunkSizeTooLarge(chunk_size)
+
+        if chunk_size == 0:
+            while True:
+                while b"\r\n" not in body_buffer:
+                    body_buffer += client_connection.recv(1024)
+
+                # check if current request has trailer sections to be discarded
+                current_request_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+                if current_request_line == b"":
+                    # buffer is clean, contains only subsequent request data
+                    break
+            break
+
+        body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
+        raw_body += body_chunk
+        _, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
+
+    # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
+    return raw_body
+
+
+def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -> Tuple[bytes, bytes]:
+    while len(body_buffer) < chunk_size:
+        body_buffer += client_connection.recv(1024)
+
+    body_chunk = body_buffer[:chunk_size]
+    body_buffer = body_buffer[chunk_size:]
+
+    return body_chunk, body_buffer
+
+
 class HTTPRequest:
     method: HTTPRequestMethod
     url: str
     protocol: HTTPProtocol
     headers: Dict[str, List[str]]
     body: Optional[str]
-
-    MAX_BODY_SIZE = 1 * 1024 * 1024
 
     def __init__(self, method, url, protocol, headers):
         self.method = method
@@ -98,24 +149,21 @@ class HTTPRequest:
         self.headers = headers
         self.body = None
 
-    def parse_body(self, client_connection: socket, body: bytes) -> Optional[str]:
+    def parse_body(
+        self, client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
+    ) -> Optional[str]:
         # keys are already lower case from "parse_headers" function
         transfer_encoding = self.headers.get("transfer-encoding", None)
         content_length = self.headers.get("content-length", None)
 
-        # TODO: Wrong Chunked Parsing:
-        #  1. Need to parse each chunk as declared on length prefix in hex
+        raw_body = b""
         if transfer_encoding is not None:
             if len(transfer_encoding) != 1:
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
 
             transfer_encoding = transfer_encoding[0]
             if transfer_encoding.lower() == "chunked":
-                while True:
-                    chunk_data = client_connection.recv(1024)
-                    if len(chunk_data) == 0:
-                        break
-                    body += chunk_data
+                raw_body = parse_chunked_body(client_connection, body_buffer, limits)
             elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
                 raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
             else:
@@ -125,35 +173,38 @@ class HTTPRequest:
             content_length = content_length[0]
             try:
                 content_length = int(content_length)  # "Content-Length" should be unique
-            except ValueError:  # can't conver to integer, like empty string
+            except ValueError:  # can't convert to integer, like empty string
                 raise InvalidContentLength(content_length=content_length)
             else:  # can convert to integer but still invalid like negative number
                 if content_length < 0:
                     raise InvalidContentLength(content_length=content_length)
-                elif content_length > self.MAX_BODY_SIZE:
-                    raise BodyTooLarge(max_body_size=self.MAX_BODY_SIZE, content_length=content_length)
+                elif content_length > limits.max_body_size:
+                    raise BodyTooLarge(content_length)
 
-            if content_length == 0:
-                body = b""
-            else:
-                while len(body) < content_length:
+            if content_length > 0:
+                while len(body_buffer) < content_length:
                     chunk_data = client_connection.recv(1024)
                     if not chunk_data:
                         break
-                    body += chunk_data
+                    body_buffer += chunk_data
 
-                if len(body) < content_length:
-                    raise InvalidBodyLength(body_length=len(body), expected_length=content_length)
+                if len(body_buffer) < content_length:
+                    raise InvalidBodyLength(body_length=len(body_buffer), expected_length=content_length)
                 else:
-                    body = body[:content_length] if content_length > 0 else b""
+                    raw_body = body_buffer[:content_length]
+                    # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
+                    body_buffer = body_buffer[content_length:]
 
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
 
+        body_size = len(raw_body) if raw_body else 0
+        if body_size > limits.max_body_size:
+            raise BodyTooLarge(body_size=body_size, max_body_size=limits.max_body_size)
+
         try:
-            body = body.decode(encoding="UTF-8", errors="strict") if body else None
+            self.body = raw_body.decode(encoding="UTF-8", errors="strict") if raw_body else None
         except UnicodeDecodeError:
             raise InvalidDecoding()
 
-        self.body = body if body else None
         return self.body
