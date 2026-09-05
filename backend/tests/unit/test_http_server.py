@@ -23,6 +23,7 @@ from request.exceptions import (
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
+from server.config import ServerLimits
 from server.exceptions import InvalidDecoding, InvalidRequest
 from server.http_server import HTTPServer
 
@@ -426,6 +427,20 @@ class TestServerBodyHandling:
 
         assert_equal(response.status_code, InvalidChunkSize.status_code)
         assert_in(InvalidChunkSize(invalid_chunk_size).base_message, caplog.text)
+
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nA\r\n1\r\nB\r\n1\r\nC\r\n0\r\n\r\n",
+        ])
+
+        test_limits = ServerLimits(max_body_size=2)
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection, test_limits)
+
+        assert_equal(response.status_code, BodyTooLarge.status_code)
+        assert_in(BodyTooLarge(body_size=3, max_body_size=test_limits.max_body_size).base_message, caplog.text)
 
 
 class TestServerRouting:

@@ -196,8 +196,6 @@ class TestRequestHeadersParsing:
 
 
 class TestRequestBodyParsing:
-    TEST_LIMITS = ServerLimits(max_body_size=2)
-
     @pytest.mark.parametrize(
         "request_method",
         [
@@ -247,6 +245,7 @@ class TestRequestBodyParsing:
     @pytest.mark.asyncio
     async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
         fake_connection = FakeSocket([])
+        test_limits = ServerLimits(max_body_size=2)
 
         request = HTTPRequest(
             method=HTTPRequestMethod.POST,
@@ -258,9 +257,9 @@ class TestRequestBodyParsing:
         body_buffer = b"1\r\nA\r\n1\r\nB\r\n1\r\nC\r\n0\r\n\r\n"
         with pytest.raises(
                 BodyTooLarge,
-                match=re.escape(f"expected a body size smaller than {self.TEST_LIMITS.max_body_size!r} bytes, got 3 bytes")
+                match=re.escape(f"expected a body size smaller than {test_limits.max_body_size!r} bytes, got 3 bytes")
         ):
-            request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=self.TEST_LIMITS)
+            request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
 
     class TestRequestBodyTransferEncodingParsing:
