@@ -104,9 +104,7 @@ class BodyTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
 
     def __init__(self, body_size: int, max_body_size: int = DEFAULT_LIMITS.max_body_size):
-        super().__init__(
-            f"expected a body size smaller than {max_body_size!r} bytes, got {body_size!r} bytes"
-        )
+        super().__init__(f"expected a body size smaller than {max_body_size!r} bytes, got {body_size!r} bytes")
 
 
 class UnspecifiedBodyLength(HTTPServerException):

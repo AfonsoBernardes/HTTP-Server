@@ -87,7 +87,9 @@ def parse_headers(request_headers: str) -> Tuple[
     return method, url, protocol, headers
 
 
-def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS) -> Optional[bytes]:
+def parse_chunked_body(
+    client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
+) -> Optional[bytes]:
     raw_body = b""
     while True:
         while b"\r\n" not in body_buffer:
@@ -147,7 +149,9 @@ class HTTPRequest:
         self.headers = headers
         self.body = None
 
-    def parse_body(self, client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS) -> Optional[str]:
+    def parse_body(
+        self, client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
+    ) -> Optional[str]:
         # keys are already lower case from "parse_headers" function
         transfer_encoding = self.headers.get("transfer-encoding", None)
         content_length = self.headers.get("content-length", None)
