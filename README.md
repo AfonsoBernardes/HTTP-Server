@@ -3,8 +3,15 @@
 </div>
 
 <div>
-    <p>As Software Engineers, we increasingly rely on libraries, frameworks, and now AI tools to move faster. Speed comes at a cost, as we often focus on how the tool itself works, or its output, while not understanding the underlying concepts and what's happening underneath. Having worked with web frameworks, such as FastAPI, to build APIs for production grade applications, I realised my knowledge of how HTTP requests/ responses are actually received, parsed and routed was thinner than I'd like</p>
-    <p>The goal of this project is simple: build an HTTP Server to better understand how the protocol works. We'll focus on the most basic features of HTTP, removing the layers of abstraction introduced by web frameworks. AI usage was also deliberately kept to a minimum to avoid cognitive debt, which would be against the project's spirit.</p>
+    <p>As Software Engineers, we increasingly rely on libraries, frameworks, and now AI tools to move faster. Speed comes at a cost, as we often focus on <i>how</i> the tool itself works, or its output, without understanding the <i>underlying concepts and what's happening underneath it</i>. Having worked with web frameworks, such as FastAPI, to build APIs for production grade applications, I realised my knowledge of how HTTP requests/ responses are actually received, parsed and routed was thinner than I'd like.</p>
+    <p>
+      This project is my attempt to close that gap, by building an HTTP Server from scratch to better understand how the protocol works. We'll focus on the most basic features of HTTP, removing the layers of abstraction introduced by web frameworks. AI usage was also deliberately kept to a minimum to avoid cognitive debt, which would be against the project's spirit. My goals are:
+    <ul>
+      <li>Understand exactly the anatomy of an HTTP/1 request, how a stream of bytes is received and parsed into a request with path, headers and a correctly-delimited body.</li>
+      <li>Understand how routing works, how a method and path are assigned to the correct handler.</li>
+      <li>Understand how a response is constructed and sent back correctly, with proper headers, body and status code.</li>
+    </ul>
+    </p>
 </div>
 
 <div>
