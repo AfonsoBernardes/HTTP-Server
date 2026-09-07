@@ -10,6 +10,7 @@
         <li>Understand exactly the anatomy of an HTTP/1 request, how a stream of bytes is received and parsed into a request with path, headers and a correctly-delimited body.</li>
         <li>Understand how routing works, how a method and path are assigned to the correct handler.</li>
         <li>Understand how a response is constructed and sent back correctly, with proper headers, body and status code.</li>
+        <li>Understand protocol-level details such chunked transfer encoding and persistent connections.</li>
       </ul>
     </p>
 </div>
@@ -47,6 +48,14 @@
 
 <div>
   <h2>What I Deliberately Skipped</h2>
+  <p>
+    <ul>
+      <li>HTTPS/TLS  orthogonal to understanding HTTP framing and parsing.</li>
+      <li>HTTP/2 is a separate protocol with different set of rules.</li>
+      <li>Transfer-Encoding: compress, deflate, gzip is rarely used; moreover, it adds complexity without HTTP insight</li>
+      <li>A real database, since database management is out of scope for this project.</li>
+    </ul>
+  </p>
 </div>
 
 <div>
