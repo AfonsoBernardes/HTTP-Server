@@ -16,12 +16,12 @@
 </div>
 
 <div>
-  <h2>Getting Started</h2>
-  <p>Some commands here for easy start.</p>
+  <h2>How It Works</h2>
 </div>
 
 <div>
-  <h2>How It Works</h2>
+  <h2>Getting Started</h2>
+  <p>Some commands here for easy start.</p>
 </div>
 
 <div>
