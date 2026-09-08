@@ -50,9 +50,9 @@
   <h2>What I Deliberately Skipped</h2>
   <p>
     <ul>
-      <li>HTTPS/TLS  orthogonal to understanding HTTP framing and parsing.</li>
+      <li>HTTPS/TLS is not a core concept of HTTP parsing.</li>
       <li>HTTP/2 is a separate protocol with different set of rules.</li>
-      <li>Transfer-Encoding: compress, deflate, gzip is rarely used; moreover, it adds complexity without HTTP insight</li>
+      <li>Transfer-Encoding: compress, deflate, gzip is rarely used; moreover, it adds complexity without HTTP insight.</li>
       <li>A real database, since database management is out of scope for this project.</li>
     </ul>
   </p>
