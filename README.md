@@ -17,6 +17,13 @@
 
 <div>
   <h2>How It Works</h2>
+  
+  <h3>Overview</h3>
+  <p>HTTP serves as the foundation of any data exchange on the Web. It follows a client-server model where the client opens a connection to make a request and waits for a response from the server based on resources such as text, images, videos, etc.</p>
+  <p>HTTP requires an underlying transport layer to exchange requests and responses between the client and the server. Even though the transport layer does not need to be connection-based, HTTP requires it to be reliable and needs the guarantee that packets are correctly delivered. So, HTTP relies on <b>Transmission Control Protocol (TCP).</b></p>
+
+  <h4>TCP (Transmission Control Protocol)</h4>
+  <p></p>
 </div>
 
 <div>
