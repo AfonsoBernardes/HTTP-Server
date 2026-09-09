@@ -3,7 +3,7 @@
 </div>
 
 <div>
-		<p>As software engineers, we increasingly rely on libraries, frameworks, and now AI tools to move faster. Speed comes at a cost, as we often focus on <i>how</i> the tool itself works, or its output, without understanding the underlying concepts and what's happening underneath it. Having worked with web frameworks, such as FastAPI, to build APIs for production grade applications, I realised my knowledge of how HTTP requests/ responses are actually received, parsed and routed was thinner than I'd like.</p>
+		<p>As software engineers, we increasingly rely on libraries, frameworks, and now AI tools to move faster, but speed comes at a cost. As we often focus on <i>how</i> the tool itself works, or its output, without understanding the underlying concepts and what's happening underneath it. Having worked with web frameworks, such as FastAPI, to build APIs for production grade applications, I realised my knowledge of how HTTP requests/ responses are actually received, parsed and routed was thinner than I'd like.</p>
 		<p>This project is my attempt to close that gap. I'm building an HTTP Server from scratch to better understand how the protocol works. I'll focus on the most basic features of HTTP, removing the layers of abstraction introduced by web frameworks. AI usage was also deliberately kept to a minimum to avoid cognitive debt, which would be against the project's spirit. My goals are:</p>
 			<ul>
 				<li>Understand exactly the anatomy of an HTTP/1 request, how a stream of bytes is received and parsed into a request with path, headers and a correctly-delimited body.</li>
