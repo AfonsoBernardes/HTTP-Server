@@ -1,6 +1,7 @@
 <div align="center">
   <h1>HTTP & TCP Fundamentals</h1>
 </div>
+
   Optional reading for the project's [README](./README.md). If you are already familiar with how HTTP and TCP work, reading is not mandatory, this file exists for completeness.
 
 
