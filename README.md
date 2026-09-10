@@ -2,18 +2,16 @@
   <h1>HTTP Server from Scratch</h1>
 </div>
 
-As software engineers, we increasingly rely on libraries, frameworks, and now AI tools to move faster. Speed comes at a cost, as we often focus on _how_ the tool itself works, or its output, without understanding the underlying concepts and what's happening underneath it. Having worked with web frameworks, such as FastAPI, to build APIs for production grade applications, I realised my knowledge of how HTTP requests/ responses are actually received, parsed and routed was thinner than I'd like.
-
-This project is my attempt to close that gap. I'm building an HTTP Server from scratch to better understand how the protocol works. I'll focus on the most basic features of HTTP, removing the layers of abstraction introduced by web frameworks. AI usage was also deliberately kept to a minimum to avoid cognitive debt, which would be against the project's spirit. My goals are:
+Software engineers increasingly rely on tools to move faster. Speed comes at a cost, as we often focus on _how_ the tool itself works (or its output) without understanding what's happening underneath. As a backend engineer building production-grade applications with FastAPI, which abstracts away the HTTP request/response lifecycle, I built an HTTP/1.1 server from scratch to look under the hood. AI usage was also deliberately kept to a minimum to avoid cognitive debt, which would be against the project's spirit. Here's what this project does:
 
 <ul>
-	<li>Understand exactly the anatomy of an HTTP/1 request, how a stream of bytes is received and parsed into a request with path, headers and a correctly-delimited body.</li>
-	<li>Understand how routing works, how a method and path are assigned to the correct handler.</li>
-	<li>Understand how a response is constructed and sent back correctly, with proper headers, body and status code.</li>
-	<li>Understand protocol-level details such chunked transfer encoding and persistent connections.</li>
+	<li>Parse raw bytes from a TCP socket into a structured request with method, path, headers and a correctly-delimited body.</li>
+	<li>Resolve a request's method and path to the correct handler via a router.</li>
+	<li>Serialise a handler's result into a well-formed HTTP response, with the correct headers, status code, and body.</li>
+	<li>Support protocol-level behaviour such chunked transfer encoding and persistent (keep-alive) connections.</li>
 </ul>
 
-> New to HTTP? See [THEORY.md](./THEORY.md) for the fundamentals of HTTP/TCP. This README focuses on what I built, how I built it and explains the decisions along the way.
+> See [THEORY.md](./THEORY.md) for the fundamentals of HTTP/TCP. This README focuses on what I built, how I built it and explains the decisions along the way.
 
 
 ## Features
