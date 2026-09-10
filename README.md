@@ -2,7 +2,7 @@
   <h1>HTTP Server from Scratch</h1>
 </div>
 
-Software engineers increasingly rely on tools to move faster. Speed comes at a cost, as we often focus on _how_ the tool itself works (or its output) without understanding what's happening underneath. As a backend engineer building production-grade applications with FastAPI, which abstracts away the HTTP request/response lifecycle, I built an HTTP/1.1 server from scratch to look under the hood. AI usage was also deliberately kept to a minimum to avoid cognitive debt, which would be against the project's spirit. Here's what this project does:
+Software engineers increasingly rely on tools to move faster, yet speed comes at a cost. As a backend engineer building production-grade applications with FastAPI, which abstracts away the HTTP request/response lifecycle, I built an HTTP/1.1 server from scratch to look under the hood. AI usage was deliberately kept to a minimum to avoid cognitive debt, which would be against the project's spirit. Here's what this project does:
 
 <ul>
 	<li>Parse raw bytes from a TCP socket into a structured request with method, path, headers and a correctly-delimited body.</li>
