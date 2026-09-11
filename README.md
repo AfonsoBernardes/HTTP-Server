@@ -13,21 +13,39 @@ Software engineers increasingly rely on tools to move faster, yet speed comes at
 
 > See [THEORY.md](./THEORY.md) for the fundamentals of HTTP/TCP. This README focuses on what I built, how I built it and explains the decisions along the way.
 
+---
 
 ## Features
-### HTTP Parsing
-### HTTP Routing
+
+---
 
 ## How I Built It
+
+### TCP Server
+
+### HTTP Server
+
+### Router
+
+### Request
+
+### Response
+
+---
 
 ## Getting Started
 
 Some commands here for easy start.
 
+---
+
 ## Project Structure
 
+---
 
 ## Future Work
+
+---
 
 ## What I Deliberately Skipped
 <ul>
@@ -36,5 +54,7 @@ Some commands here for easy start.
 	<li>Transfer-Encoding: compress, deflate, gzip is rarely used; moreover, it adds complexity without HTTP insight.</li>
 	<li>A real database, since database management is out of scope for this project.</li>
 </ul>
+
+---
 
 ## Resources
