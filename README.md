@@ -23,7 +23,17 @@ Software engineers increasingly rely on tools to move faster, yet speed comes at
 
 ### TCP Server
 
+The foundation is a raw TCP socket, with no framework listening on your behalf. It accepts incoming connections and reads the raw bytes off the wire — at this layer, there's no concept of "requests" or "methods," just a stream of bytes that someone else has to interpret.
+ 
+[Add: how the TCP server actually works — blocking sockets? A read loop with a buffer size you chose? Why that shape, and what happens if a client sends data slowly or in pieces?]
+
+
 ### HTTP Server
+
+Sitting on top of the TCP layer is `HTTPServer`, which is where the raw byte stream actually becomes HTTP. It takes what `TCPServer` read off the socket, hands it to `Request` to be parsed, resolves the path via the router, and will eventually be responsible for writing a response back down through `TCPServer`.
+ 
+[Add: why you split TCP and HTTP into separate layers — was this about separation of concerns, testability, or something you learned only after trying to do it all in one place?]
+
 
 ### Router
 
