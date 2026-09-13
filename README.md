@@ -23,7 +23,21 @@ Software engineers increasingly rely on tools to move faster, yet speed comes at
 
 ### TCP Server
 
-The foundation is a raw TCP socket, with no framework listening on your behalf. It accepts incoming connections and reads the raw bytes off the wire — at this layer, there's no concept of "requests" or "methods," just a stream of bytes that someone else has to interpret.
+`TCPServer` is an `ABC` (abstract base class) that implements the transport layer. Any subclass only has to implement what to do with a connection once it's open. This keeps the socket management in one place and out of the HTTP-specific code.
+
+The project's foundation is a raw TCP server, where the low-level networking happens without frameworks, by setting up a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be bound to the same port and IP address, and a port in TIME_WAIT status (interval between closing and opening a new TCP session) is recognised as un-used port when the system checks if it is in use or not.
+
+```Python
+class TCPServer(ABC):
+    def __init__(self):
+        self.server_socket = socket(family=AF_INET, type=SOCK_STREAM)
+		self.server_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+
+        self.host = os.getenv("HOST", "0.0.0.0")
+        self.port = int(os.getenv("BACKEND_PORT", "8000"))
+```
+
+`TCPServer` defines a method which first binds the socket to the IP address and port, listening to one connection at a time. The server waits for an incoming connection, handling it when established.
  
 [Add: how the TCP server actually works — blocking sockets? A read loop with a buffer size you chose? Why that shape, and what happens if a client sends data slowly or in pieces?]
 
