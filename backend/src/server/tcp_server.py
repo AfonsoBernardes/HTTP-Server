@@ -23,13 +23,13 @@ class TCPServer(ABC):
         # associate the socket with the server address
         self.server_socket.bind((self.host, self.port))
 
-        # puts the socket into server mode, listening for up to "n" connections
-        self.server_socket.listen(1)
+        # puts the socket into server mode, accepting a backlog of up to "n" connections
+        self.server_socket.listen(0)
 
         logger.info(f"Server started on {self.host}:{self.port}")
         while True:
             # waits for an incoming connection
-            # conn is a new socket object usable to send and receive data on the connection,
+            # client_connection is a new socket object usable to send and receive data on the connection,
             # address is the address bound to the socket on the other end of the connection.
             client_connection, client_address = self.server_socket.accept()
             logger.info(f"Client {client_address} connected")
