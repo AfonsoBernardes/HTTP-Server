@@ -23,11 +23,9 @@ Software engineers increasingly rely on tools to move faster, yet speed comes at
 
 ### TCP Server
 
-`TCPServer` is an `ABC` (abstract base class) that implements the transport layer. Any subclass only has to implement what to do with a connection once it's open. This keeps the socket management in one place and out of the HTTP-specific code.
+The first building block of this project is a minimal, reusable, protocol-agnostic TCP server which protocol-specific servers, like HTTP, can extend. `TCPServer` is an `ABC` (abstract base class) which implements the transport layer, i.e, it takes care of opening a socket, binding it to an address, listening for connections, and accepting clients. Any subclass only has to implement what to do with a connection once it's open. This keeps the socket setup and configuration in one place and out of the HTTP-specific code.
 
-The project's foundation is a raw TCP server, where the low-level networking happens without frameworks, by setting up a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be bound to the same port and IP address, and a port in TIME_WAIT status (interval between closing and opening a new TCP session) is recognised as un-used port when the system checks if it is in use or not.
-
-```Python
+```python
 class TCPServer(ABC):
     def __init__(self):
         self.server_socket = socket(family=AF_INET, type=SOCK_STREAM)
@@ -37,17 +35,28 @@ class TCPServer(ABC):
         self.port = int(os.getenv("BACKEND_PORT", "8000"))
 ```
 
-`TCPServer` defines a method which first binds the socket to the IP address and port, listening to one connection at a time. The server waits for an incoming connection, handling it when established.
+First, we setup a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval between closing and opening a new TCP session; without configuration, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
+
+```python
+self.server_socket.bind((self.host, self.port))
+self.server_socket.listen(1)
+```
+
+When the TCP server is running, it binds the socket to a specific address and port on the machine and `listen`s to any incoming connections. Currently, `listen(0)` defines that the system will refuse new connections while the server is busy handling an existing one. This "single-connection-at-a-time" design is intentional in the early stages of the project, making development of important features simpler without having to worry about a backlog or multiple connections at a time.
+
+```python
+while True:
+    client_connection, client_address = self.server_socket.accept()
+    self.handle_request(client_connection)
+    client_connection.close()
+```
+
+Naturally, `accept()` accepts a connection, and when it does, returns a pair `(client_connection, client_address)` where client_connection is a **new** socket object usable to send and receive data on the connection, and address is the address bound to the socket on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns, the connection is closed and the server loops back to wait for the next client.
  
 [Add: how the TCP server actually works — blocking sockets? A read loop with a buffer size you chose? Why that shape, and what happens if a client sends data slowly or in pieces?]
 
 
 ### HTTP Server
-
-Sitting on top of the TCP layer is `HTTPServer`, which is where the raw byte stream actually becomes HTTP. It takes what `TCPServer` read off the socket, hands it to `Request` to be parsed, resolves the path via the router, and will eventually be responsible for writing a response back down through `TCPServer`.
- 
-[Add: why you split TCP and HTTP into separate layers — was this about separation of concerns, testability, or something you learned only after trying to do it all in one place?]
-
 
 ### Router
 
