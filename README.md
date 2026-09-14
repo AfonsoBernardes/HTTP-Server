@@ -37,21 +37,25 @@ class TCPServer(ABC):
 
 First, we setup a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval between closing and opening a new TCP session; without configuration, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
 
-```python
-self.server_socket.bind((self.host, self.port))
-self.server_socket.listen(1)
-```
-
 When the TCP server is running, it binds the socket to a specific address and port on the machine and `listen`s to any incoming connections. Currently, `listen(0)` defines that the system will refuse new connections while the server is busy handling an existing one. This "single-connection-at-a-time" design is intentional in the early stages of the project, making development of important features simpler without having to worry about a backlog or multiple connections at a time.
-
+ 
 ```python
-while True:
-    client_connection, client_address = self.server_socket.accept()
-    self.handle_request(client_connection)
-    client_connection.close()
+def run_server(self) -> tuple[socket, tuple[str, int]]:
+        self.server_socket.bind((self.host, self.port))
+        self.server_socket.listen(0)
+
+        try:
+            while True:
+                client_connection, client_address = self.server_socket.accept()
+                self.handle_request(client_connection)
+                client_connection.close()
+        finally:
+            self.server_socket.close()
 ```
 
-Naturally, `accept()` accepts a connection, and when it does, returns a pair `(client_connection, client_address)` where client_connection is a **new** socket object usable to send and receive data on the connection, and address is the address bound to the socket on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns, the connection is closed and the server loops back to wait for the next client.
+Naturally, `accept()` accepts a connection, and when it does, returns a pair `(client_connection, client_address)` where client_connection is a **new** socket object usable to send and receive data on the connection, and `client_address` is the address bound to the socket on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns, the connection is closed and the server loops back to wait for the next client.
+
+The accept loop closes each *client* connection after it's handled, but the *listening* socket (`self.server_socket`) is a separate, longer-lived resource. Since `run_server()` runs forever, the server socket needs to be wrapped in a `try/finally` block, which guarantees `close()` runs whether the loop exits no matter what.
  
 [Add: how the TCP server actually works — blocking sockets? A read loop with a buffer size you chose? Why that shape, and what happens if a client sends data slowly or in pieces?]
 
