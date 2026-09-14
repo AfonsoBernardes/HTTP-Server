@@ -23,31 +23,24 @@ class TCPServer(ABC):
         # associate the socket with the server address
         self.server_socket.bind((self.host, self.port))
 
-        # puts the socket into server mode, listening for up to "n" connections
-        self.server_socket.listen(1)
+        # puts the socket into server mode, accepting a backlog of up to "n" connections
+        self.server_socket.listen(0)
 
         logger.info(f"Server started on {self.host}:{self.port}")
-        while True:
-            # waits for an incoming connection
-            # conn is a new socket object usable to send and receive data on the connection,
-            # address is the address bound to the socket on the other end of the connection.
-            client_connection, client_address = self.server_socket.accept()
-            logger.info(f"Client {client_address} connected")
+        try:
+            while True:
+                # waits for an incoming connection
+                # client_connection is a new socket object usable to send and receive data on the connection,
+                # address is the address bound to the socket on the other end of the connection.
+                client_connection, client_address = self.server_socket.accept()
+                logger.info(f"Client {client_address} connected")
 
-            self.handle_request(client_connection)
-            logger.info(f"Closing client {client_address} connection")
-            client_connection.close()
+                self.handle_request(client_connection)
+                logger.info(f"Closing client {client_address} connection")
+                client_connection.close()
+        finally:
+            self.server_socket.close()
 
     @abstractmethod
     def handle_request(self, client_connection: socket) -> str:
         pass
-
-    def close(self):
-        logger.info(f"Stopping server on {self.host}:{self.port}")
-        self.server_socket.close()
-
-    def __enter__(self):
-        self.run_server()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
