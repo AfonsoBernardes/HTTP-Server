@@ -27,6 +27,7 @@ class HTTPServer(TCPServer):
     def __init__(self):
         super().__init__()
         self.prefixed_routers: Dict[str, HTTPRouter] = {}
+        self._sorted_prefixes: List[str] = []
         self.free_routers: List[HTTPRouter] = []
 
     def include_router(self, router: HTTPRouter, prefix: Optional[str] = None) -> None:
@@ -37,11 +38,15 @@ class HTTPServer(TCPServer):
             if prefix in self.prefixed_routers:
                 raise DuplicateRouterPrefix(prefix=prefix)
             self.prefixed_routers[prefix] = router
+
+            # avoids recomputing sorted list per request when resolving route
+            self._sorted_prefixes = sorted(self.prefixed_routers.keys(), key=len, reverse=True)
         else:
             self.free_routers.append(router)
 
     def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
-        for prefix in self.prefixed_routers.keys():
+        # loop over longer keys first to match longest possible prefix
+        for prefix in self._sorted_prefixes:
             if url.startswith(prefix):
                 router = self.prefixed_routers[prefix]
                 sub_path = url[len(prefix) :]

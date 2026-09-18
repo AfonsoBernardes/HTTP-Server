@@ -554,6 +554,46 @@ class TestServerRouting:
         assert_equal(result("Something"), "Something")
 
     @pytest.mark.parametrize(
+        "short_prefix, long_prefix",
+        [
+            ("/long", "/long_prefix"),
+            ("/api", "/api/admin"),
+            ("/", "/prefix")
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_resolve_route_which_matches_longest_prefix(self, short_prefix: str, long_prefix: str):
+        http_server = HTTPServer()
+        url = "/"
+        http_method = HTTPRequestMethod.GET
+
+        short_router = HTTPRouter()
+        short_router.routes = {
+            url: {
+                http_method: lambda : "SHORT",
+            }
+        }
+
+        long_router = HTTPRouter()
+        long_router.routes = {
+            url: {
+                http_method: lambda : "LONG",
+            }
+        }
+
+        http_server.include_router(prefix=short_prefix, router=short_router)
+        assert_in(short_prefix, http_server.prefixed_routers)
+        assert_equal(http_server.prefixed_routers[short_prefix], short_router)
+
+        http_server.include_router(prefix=long_prefix, router=long_router)
+        assert_in(long_prefix, http_server.prefixed_routers)
+        assert_equal(http_server.prefixed_routers[long_prefix], long_router)
+
+        result = http_server.resolve_route(url=f"{long_prefix}{url}", method=http_method)
+
+        assert_equal(result(), "LONG")
+
+    @pytest.mark.parametrize(
         "prefix, bad_url",
         [
             (None, "/bad_url"),
