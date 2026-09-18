@@ -41,7 +41,8 @@ class HTTPServer(TCPServer):
             self.free_routers.append(router)
 
     def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
-        for prefix in self.prefixed_routers.keys():
+        # loop over longer keys first to match longest possible prefix
+        for prefix in sorted(self.prefixed_routers.keys(), key=len, reverse=True):
             if url.startswith(prefix):
                 router = self.prefixed_routers[prefix]
                 sub_path = url[len(prefix) :]

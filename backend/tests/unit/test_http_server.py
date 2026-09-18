@@ -575,9 +575,9 @@ class TestServerRouting:
         }
 
         long_router = HTTPRouter()
-        short_router.routes = {
+        long_router.routes = {
             url: {
-                http_method: lambda x: "LONG",
+                http_method: lambda : "LONG",
             }
         }
 
