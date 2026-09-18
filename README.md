@@ -13,13 +13,21 @@ Software engineers increasingly rely on tools to move faster, yet speed comes at
 
 > See [THEORY.md](./THEORY.md) for the fundamentals of HTTP/TCP. This README focuses on what I built, how I built it and explains the decisions along the way.
 
----
 
-## Features
+<details open>
+	<summary>
+		<h2>Features</h2>
+	</summary>
+</details>
 
----
 
-## How I Built It
+<details open>
+	<summary>
+		<h2>How I Built It</h2>
+	</summary>
+
+This section and its subsections walk us through the code line by line. Here I present what was built and the decisions/trade-offs I made along the way.
+
 
 ### TCP Server
 
@@ -37,7 +45,7 @@ class TCPServer(ABC):
 
 First, we setup a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval between closing and opening a new TCP session; without configuration, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
 
-When the TCP server is running, it binds the socket to a specific address and port on the machine and `listen`s to any incoming connections. Currently, `listen(0)` defines that the system will refuse new connections while the server is busy handling an existing one. This "single-connection-at-a-time" design is intentional in the early stages of the project, making development of important features simpler without having to worry about a backlog or multiple connections at a time.
+When the TCP server is running, it binds the socket to a specific address and port on the machine and listens to incoming connections. Currently, `listen(0)` defines that the system will refuse new connections while the server is busy handling an existing one.
  
 ```python
 def run_server(self) -> tuple[socket, tuple[str, int]]:
@@ -53,11 +61,15 @@ def run_server(self) -> tuple[socket, tuple[str, int]]:
             self.server_socket.close()
 ```
 
-Naturally, `accept()` accepts a connection, and when it does, returns a pair `(client_connection, client_address)` where client_connection is a **new** socket object usable to send and receive data on the connection, and `client_address` is the address bound to the socket on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns, the connection is closed and the server loops back to wait for the next client.
+`accept()` blocks while it waits for a connection, and when a client connects, it returns a **new** socket object (`client_connection`) usable to send and receive data on the connection, and the address bound to the socket (`client_address`) on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns, the connection is closed and the server loops back to wait for the next client.
 
-The accept loop closes each *client* connection after it's handled, but the *listening* socket (`self.server_socket`) is a separate, longer-lived resource. Since `run_server()` runs forever, the server socket needs to be wrapped in a `try/finally` block, which guarantees `close()` runs whether the loop exits no matter what.
- 
-[Add: how the TCP server actually works — blocking sockets? A read loop with a buffer size you chose? Why that shape, and what happens if a client sends data slowly or in pieces?]
+The accept loop closes each *client* connection after it's handled, but the *listening* socket (`self.server_socket`) is a separate, longer-lived resource. Since `run_server()` runs forever, the server socket needs to be wrapped in a `try/finally` block, which guarantees `close()` runs every time the loop exits, no matter what.
+
+The server is simple and has obvious limitations; but these are conscious decisions which allowed me to focus on HTTP and still uncovering how it connects to the transport layer.
+
+  * Single connection: the loop is single-threaded and accept()` blocks new client connections until the current one is fully handled and closed. This keeps the code simple without sacrificing robustness in the transport layer.
+
+  * No backlog: since I'm focusing on a single connection at a time, the system does not accept any backlog either; if the "single connection" constraint is relaxed, backlog expansion or an async model would be worth considering.
 
 
 ### HTTP Server
@@ -67,6 +79,8 @@ The accept loop closes each *client* connection after it's handled, but the *lis
 ### Request
 
 ### Response
+	
+</details>
 
 ---
 
