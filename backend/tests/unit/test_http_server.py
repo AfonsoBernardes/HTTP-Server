@@ -570,7 +570,7 @@ class TestServerRouting:
         short_router = HTTPRouter()
         short_router.routes = {
             url: {
-                http_method: lambda x: "SHORT",
+                http_method: lambda : "SHORT",
             }
         }
 
