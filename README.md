@@ -74,6 +74,44 @@ The server is simple and has obvious limitations; but these are conscious decisi
 
 ### HTTP Server
 
+As we've seen before, `TCPServer` implements everything related to the transport layer, on top of which the protocol is built. `HTTPServer`, which inherits from `TCPServer`, implements protocol-related features like parsing a request, routing it, and building a response. This parent-child relationship keeps concerns separated, allowing for other classes to build on top of the transport layer without affecting the rest of the code.
+
+Before we get into how the server handles a request, we need to look at how it register and resolves routes. Below, we can see the server contemplates two distinct ways of registering routers: either free or prefixed. `prefixed_routers` links a prefix to
+
+```python
+class HTTPServer(TCPServer):
+    def __init__(self):
+        super().__init__()
+        self.prefixed_routers: Dict[str, HTTPRouter] = {}
+        self.free_routers: List[HTTPRouter] = []
+
+    def include_router(self, router: HTTPRouter, prefix: Optional[str] = None) -> None:
+        if router in self.free_routers or router in self.prefixed_routers.values():
+            raise DuplicateRouter()
+
+        if prefix:
+            if prefix in self.prefixed_routers:
+                raise DuplicateRouterPrefix(prefix=prefix)
+            self.prefixed_routers[prefix] = router
+        else:
+            self.free_routers.append(router)
+```
+```python
+	def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
+        for prefix in self.prefixed_routers.keys():
+            if url.startswith(prefix):
+                router = self.prefixed_routers[prefix]
+                sub_path = url[len(prefix) :]
+
+                return router.resolve(sub_path, method)
+
+        for free_router in self.free_routers:
+            if free_router.routes.get(url):
+                return free_router.resolve(url, method)
+
+        return None
+```
+
 ### Router
 
 ### Request
