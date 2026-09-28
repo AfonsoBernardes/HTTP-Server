@@ -19,7 +19,7 @@ class TCPServer(ABC):
         self.host = os.getenv("HOST", "0.0.0.0")
         self.port = int(os.getenv("BACKEND_PORT", "8000"))
 
-    def run_server(self) -> tuple[socket, tuple[str, int]]:
+    def run_server(self) -> None:
         # associate the socket with the server address
         self.server_socket.bind((self.host, self.port))
 
@@ -42,5 +42,5 @@ class TCPServer(ABC):
             self.server_socket.close()
 
     @abstractmethod
-    def handle_request(self, client_connection: socket) -> str:
+    def handle_request(self, client_connection: socket):
         pass
