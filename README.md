@@ -43,12 +43,12 @@ class TCPServer(ABC):
         self.port = int(os.getenv("BACKEND_PORT", "8000"))
 ```
 
-First, we setup a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval between closing and opening a new TCP session; without configuration, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
+First, we set up a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval the port stays reserved after the connection closes; without configuration, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
 
-When the TCP server is running, it binds the socket to a specific address and port on the machine and listens to incoming connections. Currently, `listen(0)` defines that the system will refuse new connections while the server is busy handling an existing one.
+When the TCP server is running, it binds the socket to a specific address and port on the machine and listens for incoming connections. Currently, `listen(0)` defines that the system will refuse new connections while the server is busy handling an existing one.
  
 ```python
-def run_server(self) -> tuple[socket, tuple[str, int]]:
+def run_server(self):
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(0)
 
@@ -65,11 +65,14 @@ def run_server(self) -> tuple[socket, tuple[str, int]]:
 
 The accept loop closes each *client* connection after it's handled, but the *listening* socket (`self.server_socket`) is a separate, longer-lived resource. Since `run_server()` runs forever, the server socket needs to be wrapped in a `try/finally` block, which guarantees `close()` runs every time the loop exits, no matter what.
 
-The server is simple and has obvious limitations; but these are conscious decisions which allowed me to focus on HTTP and still uncovering how it connects to the transport layer.
+The server is simple and has obvious limitations; but these are conscious decisions which allowed me to focus on HTTP and still uncover how it connects to the transport layer.
 
   * Single connection: the loop is single-threaded and accept()` blocks new client connections until the current one is fully handled and closed. This keeps the code simple without sacrificing robustness in the transport layer.
 
   * No backlog: since I'm focusing on a single connection at a time, the system does not accept any backlog either; if the "single connection" constraint is relaxed, backlog expansion or an async model would be worth considering.
+
+
+### HTTP Router
 
 
 ### HTTP Server
@@ -128,8 +131,6 @@ To undertstand the userior to Python 3.6, dictionaries were unordered structures
 
         return None
 ```
-
-### Router
 
 ### Request
 
