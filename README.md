@@ -81,7 +81,7 @@ Before we get into how the server handles a request, we need to look at how it r
 - `prefixed_routers` links a prefix string to a `HTTPRouter` object, grouping all routes for a given resource in a single router. Furthermore, the dictionary keyed by prefix is able to check for duplicates in O(1) time.
 - `free_routers` are registered with no prefix, so `HTTPRouter` owns the full path of it's routes.
 
-`sorted_prefixes` is a list (computed from `prefixed_routers`) which orders the prefixes from longest to shortest. The why of this structure's existence will become clear once we see how routes are resolved, for the time being, let's just note that routers are registered by the developer at startup, so this list is computed once per registration rather than on every request.
+`sorted_prefixes` is a list (computed from `prefixed_routers`) which orders the prefixes from longest to shortest. The why of this structure's existence will become clear once we see how routes are resolved, for the time being, let's just note that routers are registered by the developer at startup and before the server accepts connections, so this list is computed once per registration rather than on every request, with minimum impact on performance.
 
 ```python
 class HTTPServer(TCPServer):
