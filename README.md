@@ -76,12 +76,12 @@ The server is simple and has obvious limitations; but these are conscious decisi
 
 As we've seen before, `TCPServer` implements everything related to the transport layer, on top of which the protocol is built. `HTTPServer`, which inherits from `TCPServer`, implements protocol-related features like parsing a request, routing it, and building a response. This parent-child relationship keeps concerns separated, allowing for other classes to build on top of the transport layer without affecting the rest of the code.
 
-Before we get into how the server handles a request, we need to look at how it register and resolves routes. Below, we can see the server contemplates two distinct ways of registering routers.
+Before we get into how the server handles a request, we need to look at how it register and resolves routes. Below, we can see the server contemplates two distinct ways of registering routers:
 
-<ul>
-	<li>`prefixed_routers` links prefix string to a `HTTPRouter` object, grouping all routes for a given resource in a single router. Furthermore, the dictionary keyed by prefix is able to check for duplicates in O(1) time.</li>
-	<li>`free_routers` are registered with no prefix, so `HTTPRouter` owns the full path of it's routes.</li>
-</ul>
+- `prefixed_routers` links a prefix string to a `HTTPRouter` object, grouping all routes for a given resource in a single router. Furthermore, the dictionary keyed by prefix is able to check for duplicates in O(1) time.
+- `free_routers` are registered with no prefix, so `HTTPRouter` owns the full path of it's routes.
+
+`sorted_prefixes` is a list (computed from `prefixed_routers`) which orders the prefixes from longest to shortest. The why of this structure's existence will become clear once we see how routes are resolved, for the time being, let's just note that routers are registered by the developer at startup, so this list is computed once per registration rather than on every request.
 
 ```python
 class HTTPServer(TCPServer):
@@ -90,7 +90,13 @@ class HTTPServer(TCPServer):
         self.prefixed_routers: Dict[str, HTTPRouter] = {}
 		self._sorted_prefixes: List[str] = []
         self.free_routers: List[HTTPRouter] = []
+```
 
+The server has no knowledge of individual paths/ routes, it only knows about `HTTPRouter`, each owning a group of related routes. `include_router` records the router in the server as a way of letting the server access those routes which, once resolved after a request, will return a handler function as we'll see later.
+
+Registration time is when the server learns about a router, so before anything else, it checks if the router was previously registered, with our without prefix. This avoids including a router twice by mistake which could lead to ambiguous resolution. If no prefix is present, we just add the router to the `free_routers` list. If a prefix is present, we must check if it is a duplicate before creating a new key-value entry in the `prefixed_routers` dictionary. Since a new prefixed router was added, we need to recompute the sorted prefixes list, hence the "once-per-registration" statement we made earlier.
+
+```python
     def include_router(self, router: HTTPRouter, prefix: Optional[str] = None) -> None:
         if router in self.free_routers or router in self.prefixed_routers.values():
             raise DuplicateRouter()
@@ -105,9 +111,11 @@ class HTTPServer(TCPServer):
             self.free_routers.append(router)
 ```
 
+To undertstand the userior to Python 3.6, dictionaries were unordered structures, however, as of Python 3.7 dictionaries maintain the order of insertion of its key-value pairs.
+
 ```python
 	def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
-        for prefix in self.prefixed_routers.keys():
+        for prefix in self._sorted_prefixes:
             if url.startswith(prefix):
                 router = self.prefixed_routers[prefix]
                 sub_path = url[len(prefix) :]
