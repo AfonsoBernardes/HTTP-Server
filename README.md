@@ -76,13 +76,19 @@ The server is simple and has obvious limitations; but these are conscious decisi
 
 As we've seen before, `TCPServer` implements everything related to the transport layer, on top of which the protocol is built. `HTTPServer`, which inherits from `TCPServer`, implements protocol-related features like parsing a request, routing it, and building a response. This parent-child relationship keeps concerns separated, allowing for other classes to build on top of the transport layer without affecting the rest of the code.
 
-Before we get into how the server handles a request, we need to look at how it register and resolves routes. Below, we can see the server contemplates two distinct ways of registering routers; `prefixed_routers` uses a prefix string as a key to a `HTTPRouter` object,
+Before we get into how the server handles a request, we need to look at how it register and resolves routes. Below, we can see the server contemplates two distinct ways of registering routers.
+
+<ul>
+	<li>`prefixed_routers` links prefix string to a `HTTPRouter` object, grouping all routes for a given resource in a single router. Furthermore, the dictionary keyed by prefix is able to check for duplicates in O(1) time.</li>
+	<li>`free_routers` are registered with no prefix, so `HTTPRouter` owns the full path of it's routes.</li>
+</ul>
 
 ```python
 class HTTPServer(TCPServer):
     def __init__(self):
         super().__init__()
         self.prefixed_routers: Dict[str, HTTPRouter] = {}
+		self._sorted_prefixes: List[str] = []
         self.free_routers: List[HTTPRouter] = []
 
     def include_router(self, router: HTTPRouter, prefix: Optional[str] = None) -> None:
@@ -93,9 +99,12 @@ class HTTPServer(TCPServer):
             if prefix in self.prefixed_routers:
                 raise DuplicateRouterPrefix(prefix=prefix)
             self.prefixed_routers[prefix] = router
+
+            self._sorted_prefixes = sorted(self.prefixed_routers.keys(), key=len, reverse=True)
         else:
             self.free_routers.append(router)
 ```
+
 ```python
 	def resolve_route(self, url: str, method: HTTPRequestMethod) -> Optional[Callable]:
         for prefix in self.prefixed_routers.keys():
