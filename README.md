@@ -35,12 +35,12 @@ The first building block of this project is a minimal, reusable, protocol-agnost
 
 ```python
 class TCPServer(ABC):
-    def __init__(self):
-        self.server_socket = socket(family=AF_INET, type=SOCK_STREAM)
+	def __init__(self):
+		self.server_socket = socket(family=AF_INET, type=SOCK_STREAM)
 		self.server_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
 
-        self.host = os.getenv("HOST", "0.0.0.0")
-        self.port = int(os.getenv("BACKEND_PORT", "8000"))
+		self.host = os.getenv("HOST", "0.0.0.0")
+		self.port = int(os.getenv("BACKEND_PORT", "8000"))
 ```
 
 First, we set up a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval the port stays reserved after the connection closes; without configuration, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
@@ -48,16 +48,16 @@ First, we set up a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressin
 When the TCP server is running, it binds the socket to a specific address and port on the machine and listens for incoming connections. Currently, `listen(0)` defines that the system will refuse new connections while the server is busy handling an existing one.
  
 ```python
-def run_server(self):
-        self.server_socket.bind((self.host, self.port))
-        self.server_socket.listen(0)
+def run_server(self) -> None:
+	self.server_socket.bind((self.host, self.port))
+	self.server_socket.listen(0)
 
-        try:
-            while True:
-                client_connection, client_address = self.server_socket.accept()
-                self.handle_request(client_connection)
-                client_connection.close()
-        finally:
+	try:
+		while True:
+			client_connection, client_address = self.server_socket.accept()
+			self.handle_request(client_connection)
+			client_connection.close()
+	finally:
             self.server_socket.close()
 ```
 
