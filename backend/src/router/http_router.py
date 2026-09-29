@@ -1,7 +1,9 @@
 from typing import Callable, Dict
 
+from request.http_request import HTTPRequest
 from request.schema import HTTPRequestMethod
-from router.exceptions import DuplicateRoute, HandlerNotFound, URLNotFound
+from response.http_response import HTTPResponse
+from router.exceptions import DuplicateRoute, HandlerNotFound, PathNotFound
 
 
 class HTTPRouter:
@@ -17,14 +19,14 @@ class HTTPRouter:
 
         self.routes[path][method] = handler
 
-    def resolve(self, url: str, method: HTTPRequestMethod) -> Callable:
-        route = self.routes.get(url)
+    def resolve(self, path: str, method: HTTPRequestMethod) -> Callable[[HTTPRequest], HTTPResponse]:
+        route = self.routes.get(path)
         if not route:
-            raise URLNotFound(url)
+            raise PathNotFound(path)
 
         handler = route.get(method)
         if not handler:
-            raise HandlerNotFound(url, method)
+            raise HandlerNotFound(path, method)
 
         return handler
 

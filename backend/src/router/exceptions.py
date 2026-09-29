@@ -3,7 +3,7 @@ from request.schema import HTTPRequestMethod
 from response.schema import HTTPResponseStatusCode
 
 
-class URLNotFound(HTTPServerException):
+class PathNotFound(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_404
 
     def __init__(self, url: str):
