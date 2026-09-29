@@ -71,8 +71,16 @@ The server is simple and has obvious limitations; but these are conscious decisi
 
   * No backlog: since I'm focusing on a single connection at a time, the system does not accept any backlog either; if the "single connection" constraint is relaxed, backlog expansion or an async model would be worth considering.
 
+With the TCP layer handling connections, we now need to turn raw bytes into a structured request, route the request the right handler, and build the response to send back. We'll cover each component individually before bringing them together into the HTTP server itself.
+
+
+### HTTP Request
+
 
 ### HTTP Router
+
+
+### HTTP Response
 
 
 ### HTTP Server
@@ -131,10 +139,6 @@ To undertstand the userior to Python 3.6, dictionaries were unordered structures
 
         return None
 ```
-
-### Request
-
-### Response
 	
 </details>
 
