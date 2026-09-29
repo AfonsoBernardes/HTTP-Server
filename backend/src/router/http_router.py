@@ -10,8 +10,7 @@ class HTTPRouter:
         self.routes: Dict[str, Dict[HTTPRequestMethod, Callable]] = {}
 
     def include_route(self, path: str, method: HTTPRequestMethod, handler: Callable) -> None:
-        if not self.routes.get(path):
-            self.routes[path] = {}
+        self.routes.setdefault(path, {})
 
         if method in self.routes[path]:
             raise DuplicateRoute(path, method)
