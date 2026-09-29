@@ -55,13 +55,16 @@ def run_server(self) -> None:
 	try:
 		while True:
 			client_connection, client_address = self.server_socket.accept()
-			self.handle_request(client_connection)
-			client_connection.close()
+
+			try:
+				self.handle_request(client_connection)
+			finally:
+				client_connection.close()
 	finally:
             self.server_socket.close()
 ```
 
-`accept()` blocks the server while it waits for a connection, and when a client connects, it returns a **new** socket object (`client_connection`) usable to send and receive data on the connection, and the address bound to the socket (`client_address`) on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns, the connection is closed and the server loops back to wait for the next client.
+`accept()` blocks the server while it waits for a connection, and when a client connects, it returns a **new** socket object (`client_connection`) usable to send and receive data on the connection, and the address bound to the socket (`client_address`) on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns or raise an exception, the connection is closed and the server loops back to wait for the next client.
 
 The accept loop closes each *client* connection after it's handled, but the *listening* socket (`self.server_socket`) is a separate, longer-lived resource. Since `run_server()` runs forever, the server socket needs to be wrapped in a `try/finally` block, which guarantees `close()` runs every time the loop exits, no matter what.
 
