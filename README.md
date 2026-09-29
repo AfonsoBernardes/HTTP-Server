@@ -31,7 +31,7 @@ This section and its subsections walk us through the code line by line. Here I p
 
 ### TCP Server
 
-The first building block of this project is a minimal, reusable, protocol-agnostic TCP server which protocol-specific servers, like HTTP, can extend. `TCPServer` is an `ABC` (abstract base class) which implements the transport layer, i.e, it takes care of opening a socket, binding it to an address, listening for connections, and accepting clients. Any subclass only has to implement what to do with a connection once it's open. This keeps the socket setup and configuration in one place and out of the HTTP-specific code.
+The first building block of this project is a minimal, reusable, protocol-agnostic TCP server which protocol-specific servers, like HTTP, can extend. `TCPServer` is an `ABC` (abstract base class) which implements the transport layer, i.e., it takes care of opening a socket, binding it to an address, listening for connections, and accepting clients. Any subclass only has to implement what to do with a connection once it's open. This keeps the socket setup and configuration in one place and out of the HTTP-specific code.
 
 ```python
 class TCPServer(ABC):
@@ -43,9 +43,9 @@ class TCPServer(ABC):
 		self.port = int(os.getenv("BACKEND_PORT", "8000"))
 ```
 
-First, we set up a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval the port stays reserved after the connection closes; without configuration, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
+First, we set up a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval a closed connection lingers so that late packets aren't mistaken for a new connection; without this configuration step, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
 
-When the TCP server is running, it binds the socket to a specific address and port on the machine and listens for incoming connections. Currently, `listen(0)` defines that the system will refuse new connections while the server is busy handling an existing one.
+When the TCP server is running, it binds the socket to a specific address and port on the machine and listens for incoming connections. Currently, `listen(0)` makes the pending-connection queue minimal, so additional clients wait or fail to connect while the server is busy handling an existing one.
  
 ```python
 def run_server(self) -> None:
@@ -61,17 +61,17 @@ def run_server(self) -> None:
             self.server_socket.close()
 ```
 
-`accept()` blocks while it waits for a connection, and when a client connects, it returns a **new** socket object (`client_connection`) usable to send and receive data on the connection, and the address bound to the socket (`client_address`) on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns, the connection is closed and the server loops back to wait for the next client.
+`accept()` blocks the server while it waits for a connection, and when a client connects, it returns a **new** socket object (`client_connection`) usable to send and receive data on the connection, and the address bound to the socket (`client_address`) on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns, the connection is closed and the server loops back to wait for the next client.
 
 The accept loop closes each *client* connection after it's handled, but the *listening* socket (`self.server_socket`) is a separate, longer-lived resource. Since `run_server()` runs forever, the server socket needs to be wrapped in a `try/finally` block, which guarantees `close()` runs every time the loop exits, no matter what.
 
-The server is simple and has obvious limitations; but these are conscious decisions which allowed me to focus on HTTP and still uncover how it connects to the transport layer.
+The server is simple and has obvious limitations, but these are conscious decisions which allowed me to focus on HTTP and still uncover how it connects to the transport layer.
 
-  * Single connection: the loop is single-threaded and accept()` blocks new client connections until the current one is fully handled and closed. This keeps the code simple without sacrificing robustness in the transport layer.
+  * Single connection: the loop is single-threaded, so the server can't call accept() again until the current connection is fully handled and closed, meaning other clients have to wait. This keeps the code simple without sacrificing robustness in the transport layer.
 
-  * No backlog: since I'm focusing on a single connection at a time, the system does not accept any backlog either; if the "single connection" constraint is relaxed, backlog expansion or an async model would be worth considering.
+  * No backlog: since I'm focusing on a single connection at a time, the system's pending-connection queue is kept minimal; if the "single connection" constraint is relaxed, backlog expansion or an async model would be worth considering.
 
-With the TCP layer handling connections, we now need to turn raw bytes into a structured request, route the request the right handler, and build the response to send back. We'll cover each component individually before bringing them together into the HTTP server itself.
+With the TCP layer handling connections, we now need to turn raw bytes into a structured request, route the request to the right handler, and build the response to send back. We'll cover each component individually before bringing them together into the HTTP server itself.
 
 
 ### HTTP Request
