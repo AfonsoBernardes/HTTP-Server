@@ -35,9 +35,11 @@ class TCPServer(ABC):
                 client_connection, client_address = self.server_socket.accept()
                 logger.info(f"Client {client_address} connected")
 
-                self.handle_request(client_connection)
-                logger.info(f"Closing client {client_address} connection")
-                client_connection.close()
+                try:
+                    self.handle_request(client_connection)
+                finally:
+                    logger.info(f"Closing client {client_address} connection")
+                    client_connection.close()
         finally:
             self.server_socket.close()
 
