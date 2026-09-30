@@ -396,6 +396,7 @@ class TestRequestBodyParsing:
         @pytest.mark.asyncio
         async def test_should_fail_to_handle_request_with_too_large_chunk_size(self, caplog, large_chunk_size: bytes):
             fake_connection = FakeSocket([])
+            test_limits = ServerLimits(max_chunk_size=1)
 
             request = HTTPRequest(
                 method=HTTPRequestMethod.POST,
@@ -408,9 +409,9 @@ class TestRequestBodyParsing:
             chunk_size = int(large_chunk_size.decode("ascii"), 16)
             with pytest.raises(
                     ChunkSizeTooLarge,
-                    match=re.escape(f"expected a chunk size smaller than {DEFAULT_LIMITS.max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+                    match=re.escape(f"expected a chunk size smaller than {test_limits.max_chunk_size!r} bytes, got {chunk_size!r} bytes")
             ):
-                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
 
     class TestRequestBodyContentLengthParsing:

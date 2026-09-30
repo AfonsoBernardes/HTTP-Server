@@ -114,7 +114,7 @@ def parse_chunked_body(
 
         chunk_size = int(chunk_size.decode("ascii"), 16)
         if chunk_size > limits.max_chunk_size:
-            raise ChunkSizeTooLarge(chunk_size)
+            raise ChunkSizeTooLarge(chunk_size, limits.max_chunk_size)
 
         if chunk_size == 0:
             while True:
@@ -195,7 +195,7 @@ class HTTPRequest:
                 if content_length < 0:
                     raise InvalidContentLength(content_length=content_length)
                 elif content_length > limits.max_body_size:
-                    raise BodyTooLarge(content_length)
+                    raise BodyTooLarge(content_length, limits.max_body_size)
 
             if content_length > 0:
                 while len(body_buffer) < content_length:
