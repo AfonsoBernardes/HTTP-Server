@@ -40,7 +40,7 @@ SINGLE_VALUE_HEADERS = {
 def receive_chunked_data(client_connection: socket) -> bytes:
     chunk_data = client_connection.recv(1024)
     if not chunk_data:  # client closed the connection before sending the full body
-        raise IncompleteChunkedBody(client_connection)
+        raise IncompleteChunkedBody(client_connection)  # TODO: test
 
     return chunk_data
 
@@ -134,7 +134,7 @@ def parse_chunked_body(
 
         delimiter, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
         if delimiter != b"\r\n":
-            raise InvalidChunkDelimiter(delimiter)
+            raise InvalidChunkDelimiter(delimiter)  # TODO: test
 
     # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
     return raw_body
