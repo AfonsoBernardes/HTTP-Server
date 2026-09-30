@@ -50,7 +50,7 @@ def parse_headers(request_headers: str) -> Tuple[
     headers = {}
     for header in request_headers:
         try:
-            key, value = header.rsplit(":", maxsplit=1)
+            key, value = header.split(":", maxsplit=1)
 
             invalid_char_match = INVALID_HEADER_KEY_CHARS.search(key)
             if invalid_char_match:
