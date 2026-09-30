@@ -1,3 +1,4 @@
+from socket import socket
 from typing import Any, List, Optional
 
 from displayable_exceptions.http_exception import HTTPServerException
@@ -78,6 +79,13 @@ class InvalidChunkSize(HTTPServerException):
         super().__init__(f"chunk size must be a positive integer in hexadecimal format, got {chunk_size_string!r}")
 
 
+class InvalidChunkDelimiter(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, delimiter: bytes):
+        super().__init__(f"chunk data must be followed by '\\r\\n', got {delimiter!r}")
+
+
 class InvalidContentLength(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
@@ -98,6 +106,15 @@ class ChunkSizeTooLarge(HTTPServerException):
 
     def __init__(self, chunk_size: int, max_chunk_size: int = DEFAULT_LIMITS.max_chunk_size):
         super().__init__(f"expected a chunk size smaller than {max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+
+
+class IncompleteChunkedBody(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, client_connection: socket):
+        super().__init__(
+            f"connection connection {client_connection!r} closed before the full chunked body was received"
+        )
 
 
 class BodyTooLarge(HTTPServerException):

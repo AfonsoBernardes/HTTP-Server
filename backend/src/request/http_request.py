@@ -6,7 +6,9 @@ from request.exceptions import (
     BodyTooLarge,
     ChunkSizeTooLarge,
     DuplicateHTTPHeader,
+    IncompleteChunkedBody,
     InvalidBodyLength,
+    InvalidChunkDelimiter,
     InvalidChunkSize,
     InvalidContentLength,
     InvalidHTTPHeaderKey,
@@ -33,6 +35,14 @@ SINGLE_VALUE_HEADERS = {
     "authorization",
     "content-encoding",
 }
+
+
+def receive_chunked_data(client_connection: socket) -> bytes:
+    chunk_data = client_connection.recv(1024)
+    if not chunk_data:  # client closed the connection before sending the full body
+        raise IncompleteChunkedBody(client_connection)
+
+    return chunk_data
 
 
 def parse_headers(request_headers: str) -> Tuple[
@@ -93,7 +103,8 @@ def parse_chunked_body(
     raw_body = b""
     while True:
         while b"\r\n" not in body_buffer:
-            body_buffer += client_connection.recv(1024)
+            chunk_data = receive_chunked_data(client_connection)
+            body_buffer += chunk_data
 
         chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
 
@@ -108,7 +119,8 @@ def parse_chunked_body(
         if chunk_size == 0:
             while True:
                 while b"\r\n" not in body_buffer:
-                    body_buffer += client_connection.recv(1024)
+                    chunk_data = receive_chunked_data(client_connection)
+                    body_buffer += chunk_data
 
                 # check if current request has trailer sections to be discarded
                 current_request_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
@@ -119,7 +131,10 @@ def parse_chunked_body(
 
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
         raw_body += body_chunk
-        _, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
+
+        delimiter, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
+        if delimiter != b"\r\n":
+            raise InvalidChunkDelimiter(delimiter)
 
     # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
     return raw_body
@@ -127,7 +142,8 @@ def parse_chunked_body(
 
 def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -> Tuple[bytes, bytes]:
     while len(body_buffer) < chunk_size:
-        body_buffer += client_connection.recv(1024)
+        chunk_data = receive_chunked_data(client_connection)
+        body_buffer += chunk_data
 
     body_chunk = body_buffer[:chunk_size]
     body_buffer = body_buffer[chunk_size:]
