@@ -382,7 +382,7 @@ class TestRequestBodyParsing:
             invalid_chunk_size_string = f'"{invalid_chunk_size_string}"' if invalid_chunk_size_string else ''
             with pytest.raises(
                     InvalidChunkSize,
-                    match=re.escape(f'chunk size must be a positive integer in hexadecimal format, got {invalid_chunk_size_string}')
+                    match=re.escape(f'chunk size must be a non-negative integer in hexadecimal format, got {invalid_chunk_size_string}')
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
 
