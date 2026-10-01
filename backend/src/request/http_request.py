@@ -40,7 +40,7 @@ SINGLE_VALUE_HEADERS = {
 def receive_chunked_data(client_connection: socket) -> bytes:
     chunk_data = client_connection.recv(1024)
     if not chunk_data:  # client closed the connection before sending the full body
-        raise IncompleteChunkedBody(client_connection)  # TODO: test
+        raise IncompleteChunkedBody(client_connection)
 
     return chunk_data
 
