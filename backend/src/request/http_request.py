@@ -15,9 +15,10 @@ from request.exceptions import (
     InvalidHTTPHeaders,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
+    InvalidRequestLine,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding, InvalidRequestLine,
+    UnsupportedTransferEncoding,
 )
 from request.schema import HTTPRequestMethod
 from server.config import DEFAULT_LIMITS, ServerLimits

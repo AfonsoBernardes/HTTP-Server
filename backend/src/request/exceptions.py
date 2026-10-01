@@ -14,6 +14,7 @@ class InvalidRequestLine(HTTPServerException):
     def __init__(self, request_line: str):
         super().__init__(f"invalid request line: expected '<METHOD> <TARGET> <PROTOCOL>', got {request_line!r}")
 
+
 class InvalidHTTPMethod(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
