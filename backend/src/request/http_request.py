@@ -17,7 +17,7 @@ from request.exceptions import (
     InvalidHTTPProtocol,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding,
+    UnsupportedTransferEncoding, InvalidRequestLine,
 )
 from request.schema import HTTPRequestMethod
 from server.config import DEFAULT_LIMITS, ServerLimits
@@ -54,8 +54,10 @@ def parse_headers(request_headers: str) -> Tuple[
     request_headers = request_headers.split("\r\n")
 
     # parse request line: <METHOD> <TARGET> <PROTOCOL>
-    request_line = request_headers.pop(0)
-    request_line = request_line.split(" ", maxsplit=3)
+    raw_request_line = request_headers.pop(0)
+    request_line = raw_request_line.split(" ", maxsplit=2)
+    if len(request_line) != 3:
+        raise InvalidRequestLine(raw_request_line)
 
     headers = {}
     for header in request_headers:
