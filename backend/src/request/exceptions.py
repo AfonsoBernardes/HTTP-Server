@@ -112,9 +112,7 @@ class IncompleteChunkedBody(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
     def __init__(self, client_connection: socket):
-        super().__init__(
-            f"client connection {client_connection!r} closed before the full chunked body was received"
-        )
+        super().__init__(f"client connection {client_connection!r} closed before the full chunked body was received")
 
 
 class BodyTooLarge(HTTPServerException):
