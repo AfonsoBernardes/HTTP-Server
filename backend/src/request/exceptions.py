@@ -8,6 +8,12 @@ from server.config import DEFAULT_LIMITS
 from server.schema import HTTPProtocol
 
 
+class InvalidRequestLine(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, request_line: str):
+        super().__init__(f"invalid request line: expected '<METHOD> <TARGET> <PROTOCOL>', got {request_line!r}")
+
 class InvalidHTTPMethod(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
