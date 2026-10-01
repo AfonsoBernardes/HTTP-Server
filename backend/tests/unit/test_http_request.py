@@ -376,7 +376,7 @@ class TestRequestBodyParsing:
 
             with pytest.raises(
                     IncompleteChunkedBody,
-                    match=re.escape(f'connection connection {fake_connection!r} closed before the full chunked body was received')
+                    match=re.escape(f'client connection {fake_connection!r} closed before the full chunked body was received')
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
 

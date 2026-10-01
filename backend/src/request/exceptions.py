@@ -113,7 +113,7 @@ class IncompleteChunkedBody(HTTPServerException):
 
     def __init__(self, client_connection: socket):
         super().__init__(
-            f"connection connection {client_connection!r} closed before the full chunked body was received"
+            f"client connection {client_connection!r} closed before the full chunked body was received"
         )
 
 
