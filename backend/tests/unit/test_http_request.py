@@ -19,7 +19,7 @@ from request.exceptions import (
     InvalidTransferEncoding,
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
-    ChunkSizeTooLarge,
+    ChunkSizeTooLarge, InvalidChunkDelimiter,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -206,7 +206,7 @@ class TestRequestBodyParsing:
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_without_transfer_encoding_or_content_length(self, caplog, request_method: HTTPRequestMethod):
+    async def test_should_fail_to_handle_request_without_transfer_encoding_or_content_length(self, request_method: HTTPRequestMethod):
         fake_connection = FakeSocket([])
 
         request = HTTPRequest(
@@ -230,7 +230,7 @@ class TestRequestBodyParsing:
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_invalid_body_encoding(self, caplog, content_length: str, invalid_body_encoding: bytes):
+    async def test_should_fail_to_handle_request_with_invalid_body_encoding(self, content_length: str, invalid_body_encoding: bytes):
         fake_connection = FakeSocket([])
 
         request = HTTPRequest(
@@ -244,7 +244,7 @@ class TestRequestBodyParsing:
             request.parse_body(client_connection=fake_connection, body_buffer=invalid_body_encoding)
 
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
+    async def test_should_fail_to_handle_request_with_too_large_body(self):
         fake_connection = FakeSocket([])
         test_limits = ServerLimits(max_body_size=2)
 
@@ -443,6 +443,36 @@ class TestRequestBodyParsing:
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
 
+        @pytest.mark.parametrize(
+            "body_buffer, socket_chunks, delimiter",
+            [
+                (b"3\r\nabcXX0\r\n\r\n", [], b"XX"),  # arbitrary bytes instead of CRLF
+                (b"3\r\nabcd\r\n0\r\n\r\n", [], b"d\r"),  # client sent more data than the declared size
+                (b"3\r\nabc\n\r0\r\n\r\n", [], b"\n\r"),  # CR and LF swapped
+                (b"3\r\nabc\r\r0\r\n\r\n", [], b"\r\r"),  # CR without LF
+                (b"3\r\nabc  0\r\n\r\n", [], b"  "),  # spaces instead of CRLF
+                (b"3\r\nabc", [b"XX0\r\n\r\n"], b"XX"),  # delimiter arrives entirely via recv()
+                (b"3\r\nabc\r", [b"X0\r\n\r\n"], b"\rX"),  # delimiter split across buffer and recv()
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_fail_to_handle_request_with_invalid_chunk_delimiter(self, body_buffer: bytes, socket_chunks: List[bytes], delimiter: bytes):
+            fake_connection = FakeSocket(socket_chunks)
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]},
+            )
+
+            with pytest.raises(
+                    InvalidChunkDelimiter,
+                    match=re.escape(f"chunk data must be followed by '\\r\\n', got {delimiter!r}")
+            ):
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
+
+
     class TestRequestBodyContentLengthParsing:
         @pytest.mark.parametrize(
             "method, url, protocol, headers, bytes_body, expected_body",
@@ -479,7 +509,7 @@ class TestRequestBodyParsing:
             ],
         )
         @pytest.mark.asyncio
-        async def test_should_fail_to_handle_request_with_invalid_content_length(self, caplog, invalid_content_length: Any):
+        async def test_should_fail_to_handle_request_with_invalid_content_length(self, invalid_content_length: Any):
             fake_connection = FakeSocket([])
 
             request = HTTPRequest(
@@ -504,7 +534,7 @@ class TestRequestBodyParsing:
             ],
         )
         @pytest.mark.asyncio
-        async def test_should_fail_to_handle_request_with_too_large_content_length(self, caplog, large_content_length: int):
+        async def test_should_fail_to_handle_request_with_too_large_content_length(self, large_content_length: int):
             fake_connection = FakeSocket([])
 
             request = HTTPRequest(
