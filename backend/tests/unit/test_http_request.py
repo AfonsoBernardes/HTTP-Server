@@ -16,10 +16,11 @@ from request.exceptions import (
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
     IncompleteChunkedBody,
+    InvalidChunkDelimiter,
     InvalidTransferEncoding,
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
-    ChunkSizeTooLarge, InvalidChunkDelimiter,
+    ChunkSizeTooLarge,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod

@@ -18,7 +18,7 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     InvalidChunkSize,
-    ChunkSizeTooLarge, IncompleteChunkedBody,
+    ChunkSizeTooLarge, IncompleteChunkedBody, InvalidChunkDelimiter,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
@@ -454,6 +454,7 @@ class TestServerBodyHandling:
         assert_equal(response.status_code, InvalidChunkSize.status_code)
         assert_in(InvalidChunkSize(invalid_chunk_size).base_message, caplog.text)
 
+
     @pytest.mark.asyncio
     async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
         http_server = HTTPServer()
@@ -467,6 +468,33 @@ class TestServerBodyHandling:
 
         assert_equal(response.status_code, BodyTooLarge.status_code)
         assert_in(BodyTooLarge(body_size=3, max_body_size=test_limits.max_body_size).base_message, caplog.text)
+
+
+    @pytest.mark.parametrize(
+        "socket_chunks, delimiter",
+        [
+            ([b"3\r\nabcXX0\r\n\r\n"], b"XX"),  # arbitrary bytes instead of CRLF
+            ([b"3\r\nabcd\r\n0\r\n\r\n"], b"d\r"),  # client sent more data than the declared size
+            ([b"3\r\nabc\n\r0\r\n\r\n"], b"\n\r"),  # CR and LF swapped
+            ([b"3\r\nabc\r\r0\r\n\r\n"], b"\r\r"),  # CR without LF
+            ([b"3\r\nabc  0\r\n\r\n"], b"  "),  # spaces instead of CRLF
+            ([b"3\r\nabc", b"XX0\r\n\r\n"], b"XX"),  # delimiter in second chunk
+            ([b"3\r\nabc\r", b"X0\r\n\r\n"], b"\rX"),  # delimiter split between chunks
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_chunk_delimiter(self, caplog, socket_chunks: List[bytes], delimiter: bytes):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            *socket_chunks,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidChunkDelimiter.status_code)
+        assert_in(InvalidChunkDelimiter(delimiter=delimiter).base_message, caplog.text)
 
 
 class TestServerRouting:
