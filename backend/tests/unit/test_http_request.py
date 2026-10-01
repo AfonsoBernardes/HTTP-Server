@@ -111,7 +111,6 @@ class TestRequestHeadersParsing:
     @pytest.mark.parametrize(
         "request_headers, expected_headers",
         [
-            # ("", {}),
             ("Header-Key: Header Value", {"header-key": ["Header Value"]}),
             ("Header-Key:Header Value", {"header-key": ["Header Value"]}),
             ("Header-Key: Header:Value", {"header-key": ["Header:Value"]}),
