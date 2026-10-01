@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 import pytest
 from asserts import assert_equal, assert_in, assert_is_none
@@ -18,7 +18,7 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     InvalidChunkSize,
-    ChunkSizeTooLarge,
+    ChunkSizeTooLarge, IncompleteChunkedBody,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
@@ -399,6 +399,32 @@ class TestServerBodyHandling:
 
         assert_equal(response.status_code, InvalidDecoding.status_code)
         assert_in(InvalidDecoding().base_message, caplog.text)
+
+
+    @pytest.mark.parametrize(
+        "body_buffer, socket_chunks",
+        [
+            (b"5", []),  # chunk-size line never finishes
+            (b"5\r\nabc", []),  # chunk data cut short (3 of 5 bytes)
+            (b"3\r\nabc", []),  # delimiter after chunk data missing
+            (b"0\r\n", []),  # zero-size chunk, no final blank line
+            (b"0\r\nX-Trailer: a\r\n", []),  # trailer present, no final blank line
+            (b"", [b"3\r\nab"]),  # data arrives via recv(), then disconnect
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_incomplete_chunked_body(self, caplog, body_buffer: bytes, socket_chunks: List[bytes]):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            *socket_chunks,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, IncompleteChunkedBody.status_code)
+        assert_in(IncompleteChunkedBody(client_connection=fake_connection).base_message, caplog.text)
 
 
     @pytest.mark.parametrize(
