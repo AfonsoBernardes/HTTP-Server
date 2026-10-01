@@ -18,7 +18,7 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     InvalidChunkSize,
-    ChunkSizeTooLarge, IncompleteChunkedBody, InvalidChunkDelimiter,
+    ChunkSizeTooLarge, IncompleteChunkedBody, InvalidChunkDelimiter, InvalidRequestLine,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
@@ -96,6 +96,27 @@ class TestServerHeaderHandling:
         assert_in(InvalidRequest().base_message, caplog.text)
 
     @pytest.mark.parametrize(
+        "request_line_bytes, request_line_str",
+        [
+            (b"\r\n\r\n", ""),
+            (b"GET\r\n\r\n", "GET"),
+            (b"GET /\r\n\r\n", "GET /"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_request_line(self, caplog, request_line_bytes: bytes, request_line_str: str):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            request_line_bytes
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidRequestLine.status_code)
+        assert_in(InvalidRequestLine(request_line_str).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
         "invalid_header_encoding",
         [
             b"GET / HTTP/1.1\r\nSomething: \xff\r\n\r\n",
@@ -166,7 +187,6 @@ class TestServerHeaderHandling:
         "invalid_headers, invalid_method",
         [
             (b" / HTTP/1.1\r\n\r\n", ""),
-            (b"/ HTTP/1.1\r\n\r\n", "/"),
             (b"INVALID / HTTP/1.1\r\n\r\n", "INVALID"),
         ],
     )

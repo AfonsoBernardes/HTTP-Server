@@ -6,6 +6,7 @@ from asserts import assert_equal, assert_raises
 
 from conftest import FakeSocket
 from request.exceptions import (
+    InvalidRequestLine,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
     InvalidHTTPHeaders,
@@ -61,7 +62,7 @@ class TestRequestMethod:
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_parse_request_with_invalid_method(self, invalid_request_method, error_message: str):
+    async def test_should_fail_to_parse_request_with_invalid_method(self, invalid_request_method: str, error_message: str):
         data = f"{invalid_request_method} / HTTP/1.1"
 
         with pytest.raises(InvalidHTTPMethod, match=re.escape(error_message)):
@@ -93,22 +94,28 @@ class TestRequestProtocol:
 
 
     @pytest.mark.parametrize(
-        "invalid_request_protocol, error_message",
+        "request_line, error_message",
         [
-            (None, f"invalid HTTP protocol: expected [{EXPECTED_PROTOCOL}], got 'None'"),
-            ("", f"invalid HTTP protocol: expected [{EXPECTED_PROTOCOL}], got None"),
-            (" ", f"invalid HTTP protocol: expected [{EXPECTED_PROTOCOL}], got None"),
+            ("GET / ", f"invalid HTTP protocol: expected [{EXPECTED_PROTOCOL}], got None"),
+            ("GET  / HTTP/1.1", f"invalid HTTP protocol: expected [{EXPECTED_PROTOCOL}], got '/ HTTP/1.1'"),
+            ("GET / HTTP/1.1 SMTH", f"invalid HTTP protocol: expected [{EXPECTED_PROTOCOL}], got 'HTTP/1.1 SMTH'"),
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_parse_request_with_invalid_protocol(self, invalid_request_protocol, error_message: str):
-        data = f"GET / {invalid_request_protocol}"
-
+    async def test_should_fail_to_parse_request_with_invalid_protocol(self, request_line: str, error_message: str):
         with pytest.raises(InvalidHTTPProtocol, match=re.escape(error_message)):
-            parse_headers(data)
+            parse_headers(request_line)
 
 
 class TestRequestHeadersParsing:
+    def test_should_parse_headers_with_valid_request_line(self):
+        method, url, protocol, headers = parse_headers("GET /path HTTP/1.1\r\nHost: localhost:8000")
+
+        assert method == HTTPRequestMethod.GET
+        assert url == "/path"
+        assert protocol == HTTPProtocol.HTTP_1_1
+        assert headers == {"host": ["localhost:8000"]}
+
     @pytest.mark.parametrize(
         "request_headers, expected_headers",
         [
@@ -130,6 +137,22 @@ class TestRequestHeadersParsing:
         assert_equal(request.url, "/")
         assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
         assert_equal(request.headers, expected_headers)
+
+    @pytest.mark.parametrize(
+        "invalid_request_line",
+        [
+            "",
+            "GET",
+            "GET /",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_with_invalid_request_line(self, invalid_request_line: str):
+        with pytest.raises(
+                InvalidRequestLine,
+                match=re.escape(f"invalid request line: expected '<METHOD> <TARGET> <PROTOCOL>', got {invalid_request_line!r}")
+        ):
+            parse_headers(invalid_request_line)
 
     @pytest.mark.parametrize(
         "invalid_header_key, invalid_char",
