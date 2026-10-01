@@ -150,8 +150,6 @@ class TestRequestHeadersParsing:
             ("HeaderKey{", "{"),
             ("HeaderKey}", "}"),
             ("HeaderKey\x7f", "\\x7f"),
-
-
         ],
     )
     @pytest.mark.asyncio
