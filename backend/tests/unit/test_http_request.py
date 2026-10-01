@@ -15,6 +15,7 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
+    IncompleteChunkedBody,
     InvalidTransferEncoding,
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
@@ -351,6 +352,34 @@ class TestRequestBodyParsing:
                     match=re.escape(f"'Transfer-Encoding'{transfer_encoding_string} is not valid")
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=b"")
+
+        @pytest.mark.parametrize(
+            "body_buffer, socket_chunks",
+            [
+                (b"5", []),  # chunk-size line never finishes
+                (b"5\r\nabc", []),  # chunk data cut short (3 of 5 bytes)
+                (b"3\r\nabc", []),  # delimiter after chunk data missing
+                (b"0\r\n", []),  # zero-size chunk, no final blank line
+                (b"0\r\nX-Trailer: a\r\n", []),  # trailer present, no final blank line
+                (b"", [b"3\r\nab"]),  # data arrives via recv(), then disconnect
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_fail_to_handle_request_with_incomplete_chunked_body(self, body_buffer: bytes, socket_chunks: List[bytes]):
+            fake_connection = FakeSocket(socket_chunks)
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]},
+            )
+
+            with pytest.raises(
+                    IncompleteChunkedBody,
+                    match=re.escape(f'connection connection {fake_connection!r} closed before the full chunked body was received')
+            ):
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
 
         @pytest.mark.parametrize(
             "invalid_chunk_size, invalid_chunk_size_string",
