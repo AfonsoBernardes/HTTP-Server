@@ -423,7 +423,7 @@ class TestRequestBodyParsing:
             ],
         )
         @pytest.mark.asyncio
-        async def test_should_fail_to_handle_request_with_too_large_chunk_size(self, caplog, large_chunk_size: bytes):
+        async def test_should_fail_to_handle_request_with_too_large_chunk_size(self, large_chunk_size: bytes):
             fake_connection = FakeSocket([])
             test_limits = ServerLimits(max_chunk_size=1)
 
