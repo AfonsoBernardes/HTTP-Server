@@ -139,6 +139,30 @@ class TestRequestHeadersParsing:
         assert_equal(request.headers, expected_headers)
 
     @pytest.mark.parametrize(
+        "request_headers, expected_headers",
+        [
+            ("User-Agent: Mozilla/5.0 (KHTML, like Gecko)", {"user-agent": ["Mozilla/5.0 (KHTML, like Gecko)"]}),  # not a list: comma kept
+            ("Date: Tue, 29 Sep 2026 10:00:00 GMT", {"date": ["Tue, 29 Sep 2026 10:00:00 GMT"]}),  # not a list: comma and colons kept
+            ('Authorization: Digest username="a", realm="b"', {"authorization": ['Digest username="a", realm="b"']}) , # single value: comma kept
+            ("Accept: text/html\r\naccept: application/json, text/plain", {"accept": ["text/html", "application/json", "text/plain"]}),  # list header, repeated line
+            ("Transfer-Encoding: gzip, chunked", {"transfer-encoding": ["gzip", "chunked"]}),  # list header, split
+            ("Unknown-Header: single, line", {"unknown-header": ["single, line"]}),  # unknown header, single line
+            ("Unknown-Header: repeated\r\nUnknown-Header: line", {"unknown-header": ["repeated", "line"]}),  # unknown header, repeated line
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_parse_header_values_by_type(self, request_headers: str, expected_headers: dict):
+        data = f'GET / HTTP/1.1\r\n{request_headers}'
+
+        method, url, protocol, headers = parse_headers(data)
+        request = HTTPRequest(method, url, protocol, headers)
+
+        assert_equal(request.method, HTTPRequestMethod.GET)
+        assert_equal(request.url, "/")
+        assert_equal(request.protocol, HTTPProtocol.HTTP_1_1)
+        assert_equal(request.headers, expected_headers)
+
+    @pytest.mark.parametrize(
         "invalid_request_line",
         [
             "",

@@ -37,6 +37,21 @@ SINGLE_VALUE_HEADERS = {
     "content-encoding",
 }
 
+COMMA_SEPARATED_VALUE_HEADERS = {
+    "accept",
+    "accept-encoding",
+    "accept-language",
+    "cache-control",
+    "connection",
+    "content-encoding",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+    "vary",
+    "via",
+}
+
 
 def receive_chunked_data(client_connection: socket) -> bytes:
     chunk_data = client_connection.recv(1024)
@@ -71,7 +86,10 @@ def parse_headers(request_headers: str) -> Tuple[
                 raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_char)
 
             key = key.lower()
-            value_list = [value.strip() for value in value.split(",")]
+            if key in COMMA_SEPARATED_VALUE_HEADERS:
+                value_list = [value.strip() for value in value.split(",")]
+            else:
+                value_list = [value.strip()]
 
             for value in value_list:
                 if key not in headers:
