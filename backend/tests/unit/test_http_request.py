@@ -549,7 +549,7 @@ class TestRequestBodyParsing:
                 (HTTPRequestMethod.GET, "/", HTTPProtocol.HTTP_1_1, {}, b"", None),
                 (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["0"]}, b"", None),
                 (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["20"]}, b"Correct body length.", "Correct body length."),
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["8"]}, b"Big body to be cut.", "Big body"),
+                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"content-length": ["08"]}, b"Big body to be cut.", "Big body"),
             ],
         )
         @pytest.mark.asyncio
@@ -572,9 +572,18 @@ class TestRequestBodyParsing:
         @pytest.mark.parametrize(
             "invalid_content_length",
             [
-                "ABC",
-                "-1",
                 "",
+                "+5",
+                "-5",
+                "-0",
+                "1_0",
+                "0x5",
+                "5.0",
+                "5, 5",
+                "one"
+                "٥",  # Arabic-Indic digit, accepted by int()
+                " 5",
+                "5 ",
             ],
         )
         @pytest.mark.asyncio

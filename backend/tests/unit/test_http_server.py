@@ -274,9 +274,15 @@ class TestServerHeaderHandling:
     @pytest.mark.parametrize(
         "headers, invalid_content_length",
         [
-            (b"GET / HTTP/1.1\r\nContent-Length: ABC\r\n\r\n", "ABC"),
-            (b"GET / HTTP/1.1\r\nContent-Length: -1\r\n\r\n", "-1"),
-            (b"GET / HTTP/1.1\r\nContent-Length: \r\n\r\n", None)
+            (b"POST / HTTP/1.1\r\nContent-Length: \r\n\r\n", None),
+            (b"POST / HTTP/1.1\r\nContent-Length: +5\r\n\r\n", "+5"),
+            (b"POST / HTTP/1.1\r\nContent-Length: -5\r\n\r\n", "-5"),
+            (b"POST / HTTP/1.1\r\nContent-Length: -0\r\n\r\n", "-0"),
+            (b"POST / HTTP/1.1\r\nContent-Length: 1_0\r\n\r\n", "1_0"),
+            (b"POST / HTTP/1.1\r\nContent-Length: 0x5\r\n\r\n", "0x5"),
+            (b"POST / HTTP/1.1\r\nContent-Length: 5.0\r\n\r\n", "5.0"),
+            (b"POST / HTTP/1.1\r\nContent-Length: 5, 5\r\n\r\n", "5, 5"),
+            (b"POST / HTTP/1.1\r\nContent-Length: one\r\n\r\n", "one"),
         ],
     )
     @pytest.mark.asyncio
