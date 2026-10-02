@@ -93,6 +93,13 @@ class InvalidChunkDelimiter(HTTPServerException):
         super().__init__(f"chunk data must be followed by '\\r\\n', got {delimiter!r}")
 
 
+class AmbiguousBodyLength(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self):
+        super().__init__("expected only one of 'Transfer-Encoding' or 'Content-Length', got both")
+
+
 class InvalidContentLength(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 

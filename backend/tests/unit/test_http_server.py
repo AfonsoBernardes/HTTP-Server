@@ -7,6 +7,7 @@ from asserts import assert_equal, assert_in, assert_is_none
 
 from conftest import FakeSocket
 from request.exceptions import (
+    AmbiguousBodyLength,
     DuplicateHTTPHeader,
     InvalidHTTPHeaders,
     InvalidHTTPMethod,
@@ -18,7 +19,10 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     InvalidChunkSize,
-    ChunkSizeTooLarge, IncompleteChunkedBody, InvalidChunkDelimiter, InvalidRequestLine,
+    ChunkSizeTooLarge,
+    IncompleteChunkedBody,
+    InvalidChunkDelimiter,
+    InvalidRequestLine,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
@@ -394,6 +398,29 @@ class TestServerBodyHandling:
 
         assert_equal(response.status_code, InvalidBodyLength.status_code)
         assert_in(InvalidBodyLength(body_length=19, expected_length=20).base_message, caplog.text)
+
+
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            b"Content-Length: 1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            b"Transfer-Encoding: gzip\r\nContent-Length: 1\r\n\r\n",
+            b"Content-Length:\r\nTransfer-Encoding: chunked\r\n\r\n",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_both_transfer_encoding_and_content_length(self, caplog, headers: bytes):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\n",
+            headers
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, AmbiguousBodyLength.status_code)
+        assert_in(AmbiguousBodyLength().base_message, caplog.text)
 
 
     @pytest.mark.parametrize(

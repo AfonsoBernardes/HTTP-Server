@@ -6,6 +6,7 @@ from asserts import assert_equal, assert_raises
 
 from conftest import FakeSocket
 from request.exceptions import (
+    AmbiguousBodyLength,
     InvalidRequestLine,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
@@ -306,6 +307,29 @@ class TestRequestBodyParsing:
                 match=re.escape(f"expected a body size smaller than {test_limits.max_body_size!r} bytes, got 3 bytes")
         ):
             request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
+
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            {"transfer-encoding": ["chunked"], "content-length": ["5"]},
+            {"transfer-encoding": ["gzip"], "content-length": ["5"]},  # conflict is reported before the encoding is validated
+            {"transfer-encoding": ["chunked"], "content-length": [""]},  # present but empty still counts
+        ],
+    )
+    def test_should_fail_to_handle_request_with_both_transfer_encoding_and_content_length(self, headers: dict):
+        fake_connection = FakeSocket([])
+        request = HTTPRequest(
+            method=HTTPRequestMethod.POST,
+            url="/",
+            protocol=HTTPProtocol.HTTP_1_1,
+            headers=headers,
+        )
+
+        with pytest.raises(
+                AmbiguousBodyLength,
+                match=re.escape("expected only one of 'Transfer-Encoding' or 'Content-Length', got both"),
+        ):
+            request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
 
     class TestRequestBodyTransferEncodingParsing:

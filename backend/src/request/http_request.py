@@ -3,6 +3,7 @@ from socket import socket
 from typing import Dict, List, Optional, Tuple
 
 from request.exceptions import (
+    AmbiguousBodyLength,
     BodyTooLarge,
     ChunkSizeTooLarge,
     DuplicateHTTPHeader,
@@ -192,6 +193,9 @@ class HTTPRequest:
         # keys are already lower case from "parse_headers" function
         transfer_encoding = self.headers.get("transfer-encoding", None)
         content_length = self.headers.get("content-length", None)
+
+        if transfer_encoding is not None and content_length is not None:
+            raise AmbiguousBodyLength()
 
         raw_body = b""
         if transfer_encoding is not None:
