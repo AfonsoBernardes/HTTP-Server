@@ -28,6 +28,7 @@ from server.schema import HTTPProtocol
 
 INVALID_HEADER_KEY_CHARS = re.compile(r'[\x00-\x1f\x7f\s()<>@,;:\\"/\[\]?={}]')
 
+VALID_CONTENT_LENGTH = re.compile(r"[0-9]+")
 VALID_CHUNK_SIZE = re.compile(rb"^[0-9A-Fa-f]+$")
 
 SINGLE_VALUE_HEADERS = {
@@ -212,14 +213,15 @@ class HTTPRequest:
 
         elif content_length is not None:  # "Content-Length" is present
             content_length = content_length[0]
+            if not VALID_CONTENT_LENGTH.fullmatch(content_length):
+                raise InvalidContentLength(content_length=content_length)
+
             try:
                 content_length = int(content_length)  # "Content-Length" should be unique
             except ValueError:  # can't convert to integer, like empty string
                 raise InvalidContentLength(content_length=content_length)
-            else:  # can convert to integer but still invalid like negative number
-                if content_length < 0:
-                    raise InvalidContentLength(content_length=content_length)
-                elif content_length > limits.max_body_size:
+            else:
+                if content_length > limits.max_body_size:
                     raise BodyTooLarge(content_length, limits.max_body_size)
 
             if content_length > 0:

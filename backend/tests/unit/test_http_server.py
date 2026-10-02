@@ -275,7 +275,7 @@ class TestServerHeaderHandling:
         "headers, invalid_content_length",
         [
             (b"GET / HTTP/1.1\r\nContent-Length: ABC\r\n\r\n", "ABC"),
-            (b"GET / HTTP/1.1\r\nContent-Length: -1\r\n\r\n", -1),
+            (b"GET / HTTP/1.1\r\nContent-Length: -1\r\n\r\n", "-1"),
             (b"GET / HTTP/1.1\r\nContent-Length: \r\n\r\n", None)
         ],
     )

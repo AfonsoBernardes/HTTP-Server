@@ -573,7 +573,7 @@ class TestRequestBodyParsing:
             "invalid_content_length",
             [
                 "ABC",
-                -1,
+                "-1",
                 "",
             ],
         )
@@ -588,18 +588,18 @@ class TestRequestBodyParsing:
                 headers={"content-length": [invalid_content_length]},
             )
 
-            content_length_string = f": {invalid_content_length!r}" if invalid_content_length else ""
+            content_length_string = f"{invalid_content_length!r}" if invalid_content_length else ""
             with pytest.raises(
                     InvalidContentLength,
-                    match=re.escape(f"'Content-Length'{content_length_string} is not an integer greater or equal to zero")
+                    match=re.escape(f"expected 'Content-Length' to be an integer greater or equal to zero, got {content_length_string}")
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=b"")
 
         @pytest.mark.parametrize(
             "large_content_length",
             [
-                99999999,
-                10485761,
+                "99999999",
+                "10485761",
             ],
         )
         @pytest.mark.asyncio
@@ -615,7 +615,7 @@ class TestRequestBodyParsing:
 
             with pytest.raises(
                     BodyTooLarge,
-                    match=re.escape(f"expected a body size smaller than {DEFAULT_LIMITS.max_body_size!r} bytes, got {large_content_length!r} bytes")
+                    match=re.escape(f"expected a body size smaller than {DEFAULT_LIMITS.max_body_size!r} bytes, got {large_content_length} bytes")
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=b"")
 

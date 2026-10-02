@@ -104,8 +104,8 @@ class InvalidContentLength(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
     def __init__(self, content_length: Optional[Any]):
-        content_length_string = f": {content_length!r}" if content_length else ""
-        super().__init__(f"'Content-Length'{content_length_string} is not an integer greater or equal to zero")
+        content_length_string = f"{content_length!r}" if content_length else ""
+        super().__init__(f"expected 'Content-Length' to be an integer greater or equal to zero, got {content_length_string}")
 
 
 class InvalidBodyLength(HTTPServerException):
