@@ -1,3 +1,4 @@
+from socket import socket
 from typing import Any, List, Optional
 
 from displayable_exceptions.http_exception import HTTPServerException
@@ -5,6 +6,13 @@ from request.schema import HTTPRequestMethod
 from response.schema import HTTPResponseStatusCode
 from server.config import DEFAULT_LIMITS
 from server.schema import HTTPProtocol
+
+
+class InvalidRequestLine(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, request_line: str):
+        super().__init__(f"invalid request line: expected '<METHOD> <TARGET> <PROTOCOL>', got {request_line!r}")
 
 
 class InvalidHTTPMethod(HTTPServerException):
@@ -75,15 +83,31 @@ class InvalidChunkSize(HTTPServerException):
 
     def __init__(self, chunk_size: Optional[Any]):
         chunk_size_string = f"{chunk_size!r}" if chunk_size else ""
-        super().__init__(f"chunk size must be a positive integer in hexadecimal format, got {chunk_size_string!r}")
+        super().__init__(f"chunk size must be a non-negative integer in hexadecimal format, got {chunk_size_string!r}")
+
+
+class InvalidChunkDelimiter(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, delimiter: bytes):
+        super().__init__(f"chunk data must be followed by '\\r\\n', got {delimiter!r}")
+
+
+class AmbiguousBodyLength(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self):
+        super().__init__("expected only one of 'Transfer-Encoding' or 'Content-Length', got both")
 
 
 class InvalidContentLength(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
     def __init__(self, content_length: Optional[Any]):
-        content_length_string = f": {content_length!r}" if content_length else ""
-        super().__init__(f"'Content-Length'{content_length_string} is not an integer greater or equal to zero")
+        content_length_string = f"{content_length!r}" if content_length else ""
+        super().__init__(
+            f"expected 'Content-Length' to be an integer greater or equal to zero, got {content_length_string}"
+        )
 
 
 class InvalidBodyLength(HTTPServerException):
@@ -98,6 +122,13 @@ class ChunkSizeTooLarge(HTTPServerException):
 
     def __init__(self, chunk_size: int, max_chunk_size: int = DEFAULT_LIMITS.max_chunk_size):
         super().__init__(f"expected a chunk size smaller than {max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+
+
+class IncompleteChunkedBody(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, client_connection: socket):
+        super().__init__(f"client connection {client_connection!r} closed before the full chunked body was received")
 
 
 class BodyTooLarge(HTTPServerException):
