@@ -22,7 +22,7 @@ from request.exceptions import (
     ChunkTooLarge,
     IncompleteChunkedBody,
     InvalidChunkDelimiter,
-    InvalidRequestLine, ChunkLineTooLarge,
+    InvalidRequestLine, ChunkLineTooLarge, TrailerSectionTooLarge,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
@@ -533,6 +533,29 @@ class TestServerBodyHandling:
         assert_equal(response.status_code, ChunkLineTooLarge.status_code)
         assert_in(ChunkLineTooLarge(chunk_line_size=chunk_line_size, max_chunk_line_size=test_limits.max_chunk_line_size).base_message, caplog.text)
 
+    @pytest.mark.parametrize(
+        "socket_chunks, trailer_size",
+        [
+            ([b"3\r\nABC\r\n0\r\nX: A\r\nX: B\r\n"], 6),
+            ([b"3\r\nABC\r\n0\r\nX: A\r\n", b"X: B\r\n"], 6),
+            ([b"3\r\nABC\r\n0\r", b"\nX: A\r\nX: B\r\n"], 6),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_trailer_section_too_large(self, caplog, socket_chunks: List[bytes], trailer_size: int):
+        test_limits = ServerLimits(max_trailer_size=5)
+
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            *socket_chunks
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection, test_limits)
+
+        assert_equal(response.status_code, TrailerSectionTooLarge.status_code)
+        assert_in(TrailerSectionTooLarge(trailer_size=trailer_size, max_trailer_size=test_limits.max_trailer_size).base_message, caplog.text)
 
     @pytest.mark.asyncio
     async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
