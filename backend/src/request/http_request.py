@@ -163,17 +163,17 @@ def parse_chunked_body(
     return raw_body
 
 
-def read_line(client_connection: socket, body_buffer: bytes, max_chunk_line_size: int) -> Tuple[bytes, bytes]:
+def read_line(client_connection: socket, body_buffer: bytes, max_line_size: int) -> Tuple[bytes, bytes]:
     while b"\r\n" not in body_buffer:
-        if len(body_buffer) > max_chunk_line_size + 1:  # +1: "\r" present but "\n" hasn't arrived yet
-            raise ChunkLineTooLarge(chunk_line_size=len(body_buffer), max_chunk_line_size=max_chunk_line_size)
+        if len(body_buffer) > max_line_size + 1:  # +1: "\r" present but "\n" hasn't arrived yet
+            raise ChunkLineTooLarge(chunk_line_size=len(body_buffer), max_chunk_line_size=max_line_size)
 
         chunk_data = receive_chunked_data(client_connection)
         body_buffer += chunk_data
 
     chunk_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
-    if len(chunk_line) > max_chunk_line_size:
-        raise ChunkLineTooLarge(chunk_line_size=len(chunk_line), max_chunk_line_size=max_chunk_line_size)
+    if len(chunk_line) > max_line_size:
+        raise ChunkLineTooLarge(chunk_line_size=len(chunk_line), max_chunk_line_size=max_line_size)
 
     return chunk_line, body_buffer
 
