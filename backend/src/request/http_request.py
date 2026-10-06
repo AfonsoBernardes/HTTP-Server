@@ -146,7 +146,7 @@ def parse_chunked_body(
                     # buffer is clean, contains only subsequent request data
                     break
 
-                trailer_size += len(trailer_line) + 2  # + CRLF
+                trailer_size += len(trailer_line)
                 if trailer_size > limits.max_trailer_size:
                     raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_size)
             break

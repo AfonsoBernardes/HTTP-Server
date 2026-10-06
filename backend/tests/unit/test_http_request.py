@@ -581,9 +581,10 @@ class TestRequestBodyParsing:
         @pytest.mark.parametrize(
             "body_buffer, socket_chunks, trailer_size",
             [
-                (b"3\r\nABC\r\n0\r\nX: A\r\nX: B\r\n", [], 6),
-                (b"3\r\nABC\r\n0\r\nX: A\r\n", [b"X: B\r\n"], 6),
-                (b"3\r\nABC\r\n0\r", [b"\nX: A\r\nX: B\r\n"], 6),
+                (b"3\r\nABC\r\n0\r\nX:1\r\nY:2\r\n\r\n", [], 6),  # two lines over limit
+                (b"3\r\nABC\r\n0\r\nXYZ:123\r\n\r\n", [], 7),  # single line over limit
+                (b"3\r\nABC\r\n0\r\nX:1\r\n", [b"Y:2\r\n\r\n"], 6),  # second line arrives via recv()
+                (b"3\r\nABC\r\n0\r\nX:1\r", [b"\nY:2\r\n\r\n"], 6),  # split between buffer and recv()
             ],
         )
         @pytest.mark.asyncio

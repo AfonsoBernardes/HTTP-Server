@@ -535,9 +535,9 @@ class TestServerBodyHandling:
     @pytest.mark.parametrize(
         "socket_chunks, trailer_size",
         [
-            ([b"3\r\nABC\r\n0\r\nX: A\r\nX: B\r\n"], 6),
-            ([b"3\r\nABC\r\n0\r\nX: A\r\n", b"X: B\r\n"], 6),
-            ([b"3\r\nABC\r\n0\r", b"\nX: A\r\nX: B\r\n"], 6),
+            ([b"3\r\nABC\r\n0\r\nX:1\r\nY:2\r\n"], 6),
+            ([b"3\r\nABC\r\n0\r\nX:1\r\n", b"Y:2\r\n"], 6),
+            ([b"3\r\nABC\r\n0\r", b"\nX:1\r\nY:2\r\n"], 6),
         ],
     )
     @pytest.mark.asyncio
