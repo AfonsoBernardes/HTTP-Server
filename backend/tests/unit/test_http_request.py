@@ -514,7 +514,7 @@ class TestRequestBodyParsing:
 
             with pytest.raises(
                     ChunkLineTooLarge,
-                    match=re.escape(f'expected a chunk line smaller than {test_limits.max_chunk_line_size!r} bytes, got {chunk_line_size!r} bytes')
+                    match=re.escape(f'expected a chunk line smaller than {test_limits.max_chunk_line_size!r} bytes, got at least {chunk_line_size!r} bytes')
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 

@@ -129,7 +129,7 @@ class ChunkLineTooLarge(HTTPServerException):
 
     def __init__(self, chunk_line_size: int, max_chunk_line_size: int):
         super().__init__(
-            f"expected a chunk line smaller than {max_chunk_line_size!r} bytes, got {chunk_line_size!r} bytes"
+            f"expected a chunk line smaller than {max_chunk_line_size!r} bytes, got at least {chunk_line_size!r} bytes"
         )
 
 
