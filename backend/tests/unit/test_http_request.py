@@ -377,6 +377,7 @@ class TestRequestBodyParsing:
                 (b"5\r\nABC", [b"DE\r\n", b"5\r\nFGHIJ\r\n0\r\n\r\n"], "ABCDEFGHIJ"),
                 (b"8\r\nABC", [b"DEFGH\r\n0\r\n\r\n"], "ABCDEFGH"),  # max chunk size
                 (b"5;e", [b"xt=X\r\nABC", b"DE\r\n0\r\n\r\n"], "ABCDE"),  # max chunk line size w/ extensions
+                (b"5;ext=X\r", [b"\nABCDE\r\n0\r\n\r\n"], "ABCDE"),  # line at limit, CRLF split across recv
                 (b"0\r\nX:A\r\n", [b"X:B\r\n\r\n"], None),  # max trailer section size
                 (b"0\r\nX:A\r\nX:B\r", [b"\n\r\n"], None),  # trailer line split between buffer and recv()
             ],
