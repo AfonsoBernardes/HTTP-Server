@@ -22,7 +22,7 @@ from request.exceptions import (
     InvalidTransferEncoding,
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
-    ChunkSizeTooLarge, ChunkLineTooLarge,
+    ChunkSizeTooLarge, ChunkLineTooLarge, TrailerLineTooLarge,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -543,6 +543,32 @@ class TestRequestBodyParsing:
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
+        @pytest.mark.parametrize(
+            "body_buffer, socket_chunks, trailer_size",
+            [
+                (b"3\r\nABC\r\n0\r\nX: A\r\nX: B\r\n", [], 6),
+                (b"3\r\nABC\r\n0\r\nX: A\r\n", [b"X: B\r\n"], 6),
+                (b"3\r\nABC\r\n0\r", [b"\nX: A\r\nX: B\r\n"], 6),
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_fail_to_handle_request_with_trailer_section_too_large(self, body_buffer: bytes, socket_chunks: List[bytes], trailer_size: int):
+            test_limits = ServerLimits(max_trailer_size=5)
+
+            fake_connection = FakeSocket(socket_chunks)
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]},
+            )
+
+            with pytest.raises(
+                    TrailerLineTooLarge,
+                    match=re.escape(f'expected a trailer line smaller than {test_limits.max_trailer_size!r} bytes, got {trailer_size!r} bytes')
+            ):
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
         @pytest.mark.parametrize(
             "body_buffer, socket_chunks, delimiter",
