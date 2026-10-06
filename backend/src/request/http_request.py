@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Tuple
 from request.exceptions import (
     AmbiguousBodyLength,
     BodyTooLarge,
+    ChunkLineTooLarge,
     ChunkSizeTooLarge,
     DuplicateHTTPHeader,
     IncompleteChunkedBody,
@@ -18,8 +19,9 @@ from request.exceptions import (
     InvalidHTTPProtocol,
     InvalidRequestLine,
     InvalidTransferEncoding,
+    TrailerLineTooLarge,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding, ChunkLineTooLarge, TrailerLineTooLarge,
+    UnsupportedTransferEncoding,
 )
 from request.schema import HTTPRequestMethod
 from server.config import DEFAULT_LIMITS, ServerLimits
@@ -125,7 +127,7 @@ def parse_chunked_body(
 ) -> Optional[bytes]:
     raw_body = b""
     while True:
-        chunk_size_line, body_buffer = read_line(client_connection,body_buffer, limits.max_chunk_line_size)
+        chunk_size_line, body_buffer = read_line(client_connection, body_buffer, limits.max_chunk_line_size)
 
         chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
         if not chunk_size or not VALID_CHUNK_SIZE.fullmatch(chunk_size):
@@ -139,7 +141,7 @@ def parse_chunked_body(
             trailer_size = 0
             while True:
                 # check if current request has trailer sections to be discarded, must be read to find final empty line
-                trailer_line, body_buffer = read_line(client_connection,body_buffer, limits.max_chunk_line_size)
+                trailer_line, body_buffer = read_line(client_connection, body_buffer, limits.max_chunk_line_size)
 
                 if trailer_line == b"":
                     # buffer is clean, contains only subsequent request data
@@ -160,9 +162,10 @@ def parse_chunked_body(
     # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
     return raw_body
 
+
 def read_line(client_connection: socket, body_buffer: bytes, max_chunk_line_size: int) -> Tuple[bytes, bytes]:
     while b"\r\n" not in body_buffer:
-        if len(body_buffer) > max_chunk_line_size + 1:
+        if len(body_buffer) > max_chunk_line_size + 1:  # +1: "\r" present but "\n" hasn't arrived yet
             raise ChunkLineTooLarge(chunk_line_size=len(body_buffer), max_chunk_line_size=max_chunk_line_size)
 
         chunk_data = receive_chunked_data(client_connection)

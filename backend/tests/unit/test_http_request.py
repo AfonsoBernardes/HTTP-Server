@@ -22,7 +22,7 @@ from request.exceptions import (
     InvalidTransferEncoding,
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
-    ChunkSizeTooLarge,
+    ChunkSizeTooLarge, ChunkLineTooLarge,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -449,6 +449,38 @@ class TestRequestBodyParsing:
                     match=re.escape(f'client connection {fake_connection!r} closed before the full chunked body was received')
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
+
+        @pytest.mark.parametrize(
+            "body_buffer, socket_chunks, chunk_line_size",
+            [
+                (b"AAAAAAA", [], 7),  # no CRLF, body buffer too long
+                (b"", [b"AAAAAAA"], 7),  # no CRLF, chunk too long
+                (b"AAAA", [b"AAA"], 7),  # no CRLF, body buffer + chunk too long
+                (b"AAAAAA\r\n", [], 6),  # CRLF present line too long
+                (b"A", [b"AA", b"AAA\r\n"], 6),
+                (b"", [b"AAA", b"AAA\r\n"], 6),
+                (b"3;XXXX\r\n", [], 6),  # chunk extension too long
+                (b"0\r\nX: AAA\r\n\r\n", [], 6),  # trailer line too lo g
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_fail_to_handle_request_with_chunk_line_too_large(self, body_buffer: bytes, socket_chunks: List[bytes], chunk_line_size: int):
+            test_limits = ServerLimits(max_chunk_line_size=5)
+
+            fake_connection = FakeSocket(socket_chunks)
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]},
+            )
+
+            with pytest.raises(
+                    ChunkLineTooLarge,
+                    match=re.escape(f'expected a chunk line smaller than {test_limits.max_chunk_line_size!r} bytes, got {chunk_line_size!r} bytes')
+            ):
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
         @pytest.mark.parametrize(
             "invalid_chunk_size, invalid_chunk_size_string",

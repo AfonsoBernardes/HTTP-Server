@@ -123,11 +123,15 @@ class ChunkSizeTooLarge(HTTPServerException):
     def __init__(self, chunk_size: int, max_chunk_size: int = DEFAULT_LIMITS.max_chunk_size):
         super().__init__(f"expected a chunk size smaller than {max_chunk_size!r} bytes, got {chunk_size!r} bytes")
 
+
 class ChunkLineTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
 
     def __init__(self, chunk_line_size: int, max_chunk_line_size: int):
-        super().__init__(f"expected a chunk line smaller than {max_chunk_line_size!r} bytes, got {chunk_line_size!r} bytes")
+        super().__init__(
+            f"expected a chunk line smaller than {max_chunk_line_size!r} bytes, got {chunk_line_size!r} bytes"
+        )
+
 
 class TrailerLineTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
