@@ -673,7 +673,7 @@ class TestRequestBodyParsing:
                 "0x5",
                 "5.0",
                 "5, 5",
-                "one"
+                "one",
                 "٥",  # Arabic-Indic digit, accepted by int()
                 " 5",
                 "5 ",
