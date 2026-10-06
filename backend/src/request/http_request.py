@@ -19,7 +19,7 @@ from request.exceptions import (
     InvalidRequestLine,
     InvalidTransferEncoding,
     UnspecifiedBodyLength,
-    UnsupportedTransferEncoding,
+    UnsupportedTransferEncoding, ChunkLineTooLarge, TrailerLineTooLarge,
 )
 from request.schema import HTTPRequestMethod
 from server.config import DEFAULT_LIMITS, ServerLimits
@@ -125,11 +125,7 @@ def parse_chunked_body(
 ) -> Optional[bytes]:
     raw_body = b""
     while True:
-        while b"\r\n" not in body_buffer:
-            chunk_data = receive_chunked_data(client_connection)
-            body_buffer += chunk_data
-
-        chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+        chunk_size_line, body_buffer = read_line(client_connection,body_buffer, limits.max_chunk_line_size)
 
         chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
         if not chunk_size or not VALID_CHUNK_SIZE.fullmatch(chunk_size):
@@ -140,16 +136,18 @@ def parse_chunked_body(
             raise ChunkSizeTooLarge(chunk_size, limits.max_chunk_size)
 
         if chunk_size == 0:
+            trailer_size = 0
             while True:
-                while b"\r\n" not in body_buffer:
-                    chunk_data = receive_chunked_data(client_connection)
-                    body_buffer += chunk_data
+                # check if current request has trailer sections to be discarded, must be read to find final empty line
+                trailer_line, body_buffer = read_line(client_connection,body_buffer, limits.max_chunk_line_size)
 
-                # check if current request has trailer sections to be discarded
-                current_request_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
-                if current_request_line == b"":
+                if trailer_line == b"":
                     # buffer is clean, contains only subsequent request data
                     break
+
+                trailer_size += len(trailer_line) + 2  # + CRLF
+                if trailer_size > limits.max_trailer_size:
+                    raise TrailerLineTooLarge(trailer_size, limits.max_trailer_size)
             break
 
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
@@ -161,6 +159,20 @@ def parse_chunked_body(
 
     # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
     return raw_body
+
+def read_line(client_connection: socket, body_buffer: bytes, max_chunk_line_size: int) -> Tuple[bytes, bytes]:
+    while b"\r\n" not in body_buffer:
+        if len(body_buffer) > max_chunk_line_size + 1:
+            raise ChunkLineTooLarge(chunk_line_size=len(body_buffer), max_chunk_line_size=max_chunk_line_size)
+
+        chunk_data = receive_chunked_data(client_connection)
+        body_buffer += chunk_data
+
+    chunk_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+    if len(chunk_line) > max_chunk_line_size:
+        raise ChunkLineTooLarge(chunk_line_size=len(chunk_line), max_chunk_line_size=max_chunk_line_size)
+
+    return chunk_line, body_buffer
 
 
 def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -> Tuple[bytes, bytes]:
