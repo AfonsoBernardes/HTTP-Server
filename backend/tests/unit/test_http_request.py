@@ -151,6 +151,7 @@ class TestRequestHeadersParsing:
             ("Transfer-Encoding: gzip, chunked", {"transfer-encoding": ["gzip", "chunked"]}),  # list header, split
             ("Unknown-Header: single, line", {"unknown-header": ["single, line"]}),  # unknown header, single line
             ("Unknown-Header: repeated\r\nUnknown-Header: line", {"unknown-header": ["repeated", "line"]}),  # unknown header, repeated line
+            ("Content-Encoding: gzip, br", {"content-encoding": ["gzip", "br"]})
         ],
     )
     @pytest.mark.asyncio
@@ -219,7 +220,6 @@ class TestRequestHeadersParsing:
             ("Content-Length: 0\r\ncontent-length: 0", "content-length", 2),
             ("Host: Host 1\r\nhost: Host 2\r\nHOST: Host3", "host", 3),
             ("AUTHORIZATION: BearerXYZ\r\nAuthorization: BearerZYX", "authorization", 2),
-            ("Content-Encoding: gzip, compressed,deflate", "content-encoding", 3),
         ],
     )
     @pytest.mark.asyncio

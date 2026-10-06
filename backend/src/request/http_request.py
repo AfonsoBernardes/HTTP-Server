@@ -38,7 +38,6 @@ SINGLE_VALUE_HEADERS = {
     "content-type",
     "host",
     "authorization",
-    "content-encoding",
 }
 
 COMMA_SEPARATED_VALUE_HEADERS = {

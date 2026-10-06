@@ -171,7 +171,6 @@ class TestServerHeaderHandling:
             (b"POST / HTTP/1.1\r\nContent-Length: 0\r\ncontent-length: 0\r\n\r\n", "content-length", 2),
             (b"POST / HTTP/1.1\r\nHost: Host 1\r\nhost: Host 2\r\nHOST: Host3\r\n\r\n", "host", 3),
             (b"POST / HTTP/1.1\r\nAUTHORIZATION: BearerXYZ\r\nAuthorization: BearerZYX\r\n\r\n", "authorization", 2),
-            (b"POST / HTTP/1.1\r\nContent-Encoding: gzip, compressed,deflate\r\n\r\n", "content-encoding", 3),
         ],
     )
     @pytest.mark.asyncio
