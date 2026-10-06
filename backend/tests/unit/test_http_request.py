@@ -334,38 +334,65 @@ class TestRequestBodyParsing:
 
     class TestRequestBodyTransferEncodingParsing:
         @pytest.mark.parametrize(
-            "method, url, protocol, headers, bytes_body, expected_body",
+            "body_buffer, socket_chunks, expected_body",
             [
-                (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"0\r\n\r\n", None),
-                (HTTPRequestMethod.POST, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"0\r\n\r\nGET", None),  # contains start of next request
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1\r\nA\r\n0\r\n\r\n", "A"),
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"001\r\nA\r\n0\r\n\r\n", "A"),  # leading zeros
-                (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"2\r\nAB\r\n0\r\n\r\n", "AB"),
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"2\r\nAB\r\n1\r\nC\r\n0\r\n\r\n", "ABC"),
-                (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"B\r\nABCDEFGHIJK\r\n0\r\n\r\n", "ABCDEFGHIJK"),
-                (HTTPRequestMethod.PUT, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"b\r\nABCDEFGHIJK\r\n0\r\n\r\n", "ABCDEFGHIJK"),  # upper and lower case should be the same
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"A\r\nABCDEFGHIJ\r\n1\r\nK\r\n0\r\n\r\n", "ABCDEFGHIJK"),
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1;extension=something\r\nA\r\n0\r\n\r\n", "A"),  # ignore extensions
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1\r\nA\r\n0\r\nExpires: Date\r\nX-Checksum: something\r\n\r\n", "A"),  # ignore trailer-fields
-                (HTTPRequestMethod.PATCH, "/", HTTPProtocol.HTTP_1_1, {"transfer-encoding": ["chunked"]}, b"1;extension=something\r\nA\r\n0\r\nExpires: Date\r\n\r\nGET", "A"),  # contains start of next request
+                (b"0\r\n\r\n", [], None),
+                (b"0\r\n\r\nGET", [], None),  # contains start of next request
+                (b"1\r\nA\r\n0\r\n\r\n", [], "A"),
+                (b"1\r\nA\r\n", [b"0\r\n\r\n"], "A"),
+                (b"1\r\nA\r", [b"\n0\r\n\r\n"], "A"),  # split CRLF
+                (b"", [b"1\r\nA\r\n", b"0\r\n\r\n"], "A"),
+                (b"001\r\nA\r\n0\r\n\r\n", [], "A"),  # leading zeros
+                (b"2\r\nAB\r\n0\r\n\r\n", [], "AB"),
+                (b"2\r\nAB\r\n1\r\nC\r\n0\r\n\r\n", [], "ABC"),
+                (b"B\r\nABCDEFGHIJK\r\n0\r\n\r\n", [], "ABCDEFGHIJK"),  # upper and lower case hex should be the same
+                (b"b\r\nABCDEFGHIJK\r\n0\r\n\r\n", [], "ABCDEFGHIJK"),
+                (b"A\r\nABCDEFGHIJ\r\n1\r\nK\r\n0\r\n\r\n", [], "ABCDEFGHIJK"),
+                (b"1;extension=something\r\nA\r\n0\r\n\r\n", [], "A"),  # ignore extensions
+                (b"1\r\nA\r\n0\r\n", [b"Expires: Date\r\nX-Checksum: something\r\n\r\n"], "A"),  # ignore trailer-fields
+                (b"1;extension=something\r\n", [b"A\r\n0\r\n", b"Expires: Date\r\n", b"\r\nGET"], "A"),  # contains start of next request
             ],
         )
         @pytest.mark.asyncio
-        async def test_should_parse_valid_request_body_with_transfer_encoding(
-                self,
-                method: HTTPRequestMethod,
-                url: str,
-                protocol: HTTPProtocol,
-                headers: Dict[str, str | List[str]],
-                bytes_body: bytes,
-                expected_body: Optional[str],
-        ):
-            fake_connection = FakeSocket([])
+        async def test_should_parse_valid_chunked_body_request(self, body_buffer: bytes, socket_chunks: List[bytes], expected_body: Optional[str]):
+            fake_connection = FakeSocket(socket_chunks)
 
-            request = HTTPRequest(method, url, protocol, headers)
-            request.parse_body(fake_connection, bytes_body)
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]}
+            )
+
+            request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
 
             assert_equal(request.body, expected_body)
+
+        # @pytest.mark.parametrize(
+        #     "body_buffer, socket_chunks, expected_body",
+        #     [
+        #     ],
+        # )
+        # @pytest.mark.asyncio
+        # async def test_should_parse_chunked_body_request_at_limit(self, body_buffer: bytes, socket_chunks: List[bytes], expected_body: Optional[str]):
+        #     test_limits = ServerLimits(
+        #         max_body_size=5,
+        #         max_chunk_size=5,
+        #         max_chunk_line_size=5,
+        #         max_trailer_size=5,
+        #     )
+        #     fake_connection = FakeSocket(socket_chunks)
+        #
+        #     request = HTTPRequest(
+        #         method=HTTPRequestMethod.POST,
+        #         url="/",
+        #         protocol=HTTPProtocol.HTTP_1_1,
+        #         headers={"transfer-encoding": ["chunked"]}
+        #     )
+        #
+        #     request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
+        #
+        #     assert_equal(request.body, expected_body)
 
         @pytest.mark.parametrize(
             "unsupported_transfer_encoding",
@@ -460,12 +487,12 @@ class TestRequestBodyParsing:
                 (b"A", [b"AA", b"AAA\r\n"], 6),
                 (b"", [b"AAA", b"AAA\r\n"], 6),
                 (b"3;XXXX\r\n", [], 6),  # chunk extension too long
-                (b"0\r\nX: AAA\r\n\r\n", [], 6),  # trailer line too lo g
+                (b"0\r\nX: AAA\r\n\r\n", [], 6),  # trailer line too long
             ],
         )
         @pytest.mark.asyncio
         async def test_should_fail_to_handle_request_with_chunk_line_too_large(self, body_buffer: bytes, socket_chunks: List[bytes], chunk_line_size: int):
-            test_limits = ServerLimits(max_chunk_line_size=5)
+            test_limits = ServerLimits(max_chunk_line_size=5, max_trailer_size=5)
 
             fake_connection = FakeSocket(socket_chunks)
 
