@@ -368,31 +368,37 @@ class TestRequestBodyParsing:
 
             assert_equal(request.body, expected_body)
 
-        # @pytest.mark.parametrize(
-        #     "body_buffer, socket_chunks, expected_body",
-        #     [
-        #     ],
-        # )
-        # @pytest.mark.asyncio
-        # async def test_should_parse_chunked_body_request_at_limit(self, body_buffer: bytes, socket_chunks: List[bytes], expected_body: Optional[str]):
-        #     test_limits = ServerLimits(
-        #         max_body_size=5,
-        #         max_chunk_size=5,
-        #         max_chunk_line_size=5,
-        #         max_trailer_size=5,
-        #     )
-        #     fake_connection = FakeSocket(socket_chunks)
-        #
-        #     request = HTTPRequest(
-        #         method=HTTPRequestMethod.POST,
-        #         url="/",
-        #         protocol=HTTPProtocol.HTTP_1_1,
-        #         headers={"transfer-encoding": ["chunked"]}
-        #     )
-        #
-        #     request.parse_body(client_connection=fake_connection, body_buffer=body_buffer)
-        #
-        #     assert_equal(request.body, expected_body)
+        @pytest.mark.parametrize(
+            "body_buffer, socket_chunks, expected_body",
+            [
+                (b"5\r\nABCDE\r\n5\r\nFGHIJ\r\n0\r\n\r\n", [], "ABCDEFGHIJ"),  # maximum body size
+                (b"5\r\nABC", [b"DE\r\n", b"5\r\nFGHIJ\r\n0\r\n\r\n"], "ABCDEFGHIJ"),
+                (b"8\r\nABC", [b"DEFGH\r\n0\r\n\r\n"], "ABCDEFGH"),  # max chunk size
+                (b"5;e", [b"xt=X\r\nABC", b"DE\r\n0\r\n\r\n"], "ABCDE"),  # max chunk line size w/ extensions
+                (b"0\r\nX:A\r\n", [b"X:B\r\n\r\n"], None),  # max trailer section size
+                (b"0\r\nX:A\r\nX:B\r", [b"\n\r\n"], None),  # trailer line split between buffer and recv()
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_parse_chunked_body_request_at_limit(self, body_buffer: bytes, socket_chunks: List[bytes], expected_body: Optional[str]):
+            test_limits = ServerLimits(
+                max_body_size=10,
+                max_chunk_size=8,
+                max_chunk_line_size=7,
+                max_trailer_size=10,
+            )
+            fake_connection = FakeSocket(socket_chunks)
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]}
+            )
+
+            request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
+
+            assert_equal(request.body, expected_body)
 
         @pytest.mark.parametrize(
             "unsupported_transfer_encoding",
