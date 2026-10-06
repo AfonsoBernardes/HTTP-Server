@@ -141,7 +141,7 @@ def parse_chunked_body(
             trailer_size = 0
             while True:
                 # check if current request has trailer sections to be discarded, must be read to find final empty line
-                trailer_line, body_buffer = read_line(client_connection, body_buffer, limits.max_trailer_size)
+                trailer_line, body_buffer = read_line(client_connection, body_buffer, limits.max_chunk_line_size)
 
                 if trailer_line == b"":
                     # buffer is clean, contains only subsequent request data

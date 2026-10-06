@@ -500,7 +500,7 @@ class TestRequestBodyParsing:
         )
         @pytest.mark.asyncio
         async def test_should_fail_to_handle_request_with_chunk_line_too_large(self, body_buffer: bytes, socket_chunks: List[bytes], chunk_line_size: int):
-            test_limits = ServerLimits(max_chunk_line_size=5, max_trailer_size=5)
+            test_limits = ServerLimits(max_chunk_line_size=5)
 
             fake_connection = FakeSocket(socket_chunks)
 
