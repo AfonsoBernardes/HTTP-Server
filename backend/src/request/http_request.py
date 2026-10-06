@@ -19,7 +19,7 @@ from request.exceptions import (
     InvalidHTTPProtocol,
     InvalidRequestLine,
     InvalidTransferEncoding,
-    TrailerLineTooLarge,
+    TrailerSectionTooLarge,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
 )
@@ -149,7 +149,7 @@ def parse_chunked_body(
 
                 trailer_size += len(trailer_line) + 2  # + CRLF
                 if trailer_size > limits.max_trailer_size:
-                    raise TrailerLineTooLarge(trailer_size, limits.max_trailer_size)
+                    raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_size)
             break
 
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)

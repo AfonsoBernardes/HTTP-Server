@@ -22,7 +22,7 @@ from request.exceptions import (
     InvalidTransferEncoding,
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
-    ChunkSizeTooLarge, ChunkLineTooLarge, TrailerLineTooLarge,
+    ChunkSizeTooLarge, ChunkLineTooLarge, TrailerSectionTooLarge,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -565,8 +565,8 @@ class TestRequestBodyParsing:
             )
 
             with pytest.raises(
-                    TrailerLineTooLarge,
-                    match=re.escape(f'expected a trailer line smaller than {test_limits.max_trailer_size!r} bytes, got {trailer_size!r} bytes')
+                    TrailerSectionTooLarge,
+                    match=re.escape(f'expected a trailer section smaller than {test_limits.max_trailer_size!r} bytes, got {trailer_size!r} bytes')
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
