@@ -19,7 +19,7 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     InvalidChunkSize,
-    ChunkSizeTooLarge,
+    ChunkTooLarge,
     IncompleteChunkedBody,
     InvalidChunkDelimiter,
     InvalidRequestLine,
@@ -348,8 +348,8 @@ class TestServerHeaderHandling:
         with caplog.at_level(logging.ERROR):
             response = http_server.handle_request(fake_connection)
 
-        assert_equal(response.status_code, ChunkSizeTooLarge.status_code)
-        assert_in(ChunkSizeTooLarge(large_chunk_size).base_message, caplog.text)
+        assert_equal(response.status_code, ChunkTooLarge.status_code)
+        assert_in(ChunkTooLarge(large_chunk_size).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, request_method",

@@ -6,7 +6,7 @@ from request.exceptions import (
     AmbiguousBodyLength,
     BodyTooLarge,
     ChunkLineTooLarge,
-    ChunkSizeTooLarge,
+    ChunkTooLarge,
     DuplicateHTTPHeader,
     IncompleteChunkedBody,
     InvalidBodyLength,
@@ -135,7 +135,7 @@ def parse_chunked_body(
 
         chunk_size = int(chunk_size.decode("ascii"), 16)
         if chunk_size > limits.max_chunk_size:
-            raise ChunkSizeTooLarge(chunk_size, limits.max_chunk_size)
+            raise ChunkTooLarge(chunk_size, limits.max_chunk_size)
 
         if chunk_size == 0:
             trailer_size = 0

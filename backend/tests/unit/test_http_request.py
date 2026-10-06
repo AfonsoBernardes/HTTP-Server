@@ -7,6 +7,8 @@ from asserts import assert_equal, assert_raises
 from conftest import FakeSocket
 from request.exceptions import (
     AmbiguousBodyLength,
+    ChunkTooLarge,
+    ChunkLineTooLarge,
     InvalidRequestLine,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
@@ -22,7 +24,7 @@ from request.exceptions import (
     InvalidTransferEncoding,
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
-    ChunkSizeTooLarge, ChunkLineTooLarge, TrailerSectionTooLarge,
+    TrailerSectionTooLarge,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -571,8 +573,8 @@ class TestRequestBodyParsing:
             body_buffer = large_chunk_size + b"\r\nA\r\n0\r\n\r\n"
             chunk_size = int(large_chunk_size.decode("ascii"), 16)
             with pytest.raises(
-                    ChunkSizeTooLarge,
-                    match=re.escape(f"expected a chunk size smaller than {test_limits.max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+                    ChunkTooLarge,
+                    match=re.escape(f"expected a chunk smaller than {test_limits.max_chunk_size!r} bytes, got {chunk_size!r} bytes")
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
