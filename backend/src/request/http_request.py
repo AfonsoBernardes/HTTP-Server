@@ -156,7 +156,7 @@ def parse_chunked_body(
 
         delimiter, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
         if delimiter != b"\r\n":
-            raise InvalidChunkDelimiter(delimiter)  # TODO: test
+            raise InvalidChunkDelimiter(delimiter)
 
     # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
     return raw_body
