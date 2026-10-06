@@ -7,8 +7,8 @@ from asserts import assert_equal, assert_raises
 from conftest import FakeSocket
 from request.exceptions import (
     AmbiguousBodyLength,
-    ChunkTooLarge,
     ChunkLineTooLarge,
+    ChunkTooLarge,
     InvalidRequestLine,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
