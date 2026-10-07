@@ -150,6 +150,15 @@ class ChunkLineTooLarge(HTTPServerException):
         )
 
 
+class HeaderSectionTooLarge(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_413
+
+    def __init__(self, trailer_size: int, max_trailer_size: int):
+        super().__init__(
+            f"expected a header section smaller than {max_trailer_size!r} bytes, got {trailer_size!r} bytes"
+        )
+
+
 class TrailerSectionTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
 

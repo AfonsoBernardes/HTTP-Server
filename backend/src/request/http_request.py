@@ -155,8 +155,8 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: Se
                     break
 
                 trailer_size += len(trailer_line)
-                if trailer_size > limits.max_trailer_size:
-                    raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_size)
+                if trailer_size > limits.max_trailer_section_size:
+                    raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_section_size)
             break
 
         if body_size + chunk_size > limits.max_body_size:

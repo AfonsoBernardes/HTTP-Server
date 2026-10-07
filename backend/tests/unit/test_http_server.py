@@ -619,7 +619,7 @@ class TestServerBodyHandling:
     )
     @pytest.mark.asyncio
     async def test_should_fail_to_handle_request_with_trailer_section_too_large(self, caplog, socket_chunks: List[bytes], trailer_size: int):
-        test_limits = ServerLimits(max_trailer_size=5)
+        test_limits = ServerLimits(max_trailer_section_size=5)
 
         http_server = HTTPServer()
         fake_connection = FakeSocket([
@@ -631,7 +631,7 @@ class TestServerBodyHandling:
             response = http_server.handle_request(fake_connection, test_limits)
 
         assert_equal(response.status_code, TrailerSectionTooLarge.status_code)
-        assert_in(TrailerSectionTooLarge(trailer_size=trailer_size, max_trailer_size=test_limits.max_trailer_size).base_message, caplog.text)
+        assert_in(TrailerSectionTooLarge(trailer_size=trailer_size, max_trailer_size=test_limits.max_trailer_section_size).base_message, caplog.text)
 
     @pytest.mark.asyncio
     async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
