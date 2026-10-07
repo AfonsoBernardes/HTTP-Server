@@ -454,18 +454,18 @@ class TestServerBodyHandling:
 
 
     @pytest.mark.parametrize(
-        "body_buffer, socket_chunks",
+        "socket_chunks",
         [
-            (b"5", []),  # chunk-size line never finishes
-            (b"5\r\nabc", []),  # chunk data cut short (3 of 5 bytes)
-            (b"3\r\nabc", []),  # delimiter after chunk data missing
-            (b"0\r\n", []),  # zero-size chunk, no final blank line
-            (b"0\r\nX-Trailer: a\r\n", []),  # trailer present, no final blank line
-            (b"", [b"3\r\nab"]),  # data arrives via recv(), then disconnect
+            [b"5"],  # chunk-size line never finishes
+            [b"5\r\nabc"],  # chunk data cut short (3 of 5 bytes)
+            [b"3\r\nabc"],  # delimiter after chunk data missing
+            [b"0\r\n"],  # zero-size chunk, no final blank line
+            [b"0\r\nX-Trailer: a\r\n"],  # trailer present, no final blank line
+            [b"3\r\nab"],  # data arrives via recv(), then disconnect
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_handle_request_with_incomplete_chunked_body(self, caplog, body_buffer: bytes, socket_chunks: List[bytes]):
+    async def test_should_fail_to_handle_request_with_incomplete_chunked_body(self, caplog, socket_chunks: List[bytes]):
         http_server = HTTPServer()
         fake_connection = FakeSocket([
             b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
