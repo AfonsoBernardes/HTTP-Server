@@ -428,7 +428,7 @@ class TestRequestBodyParsing:
                 max_body_size=10,
                 max_chunk_size=8,
                 max_chunk_line_size=7,
-                max_trailer_size=10,
+                max_trailer_section_size=10,
                 max_chunk_count=4,
             )
             fake_connection = FakeSocket(socket_chunks)
@@ -631,7 +631,7 @@ class TestRequestBodyParsing:
         )
         @pytest.mark.asyncio
         async def test_should_fail_to_handle_request_with_trailer_section_too_large(self, body_buffer: bytes, socket_chunks: List[bytes], trailer_size: int):
-            test_limits = ServerLimits(max_trailer_size=5)
+            test_limits = ServerLimits(max_trailer_section_size=5)
 
             fake_connection = FakeSocket(socket_chunks)
 
@@ -644,7 +644,7 @@ class TestRequestBodyParsing:
 
             with pytest.raises(
                     TrailerSectionTooLarge,
-                    match=re.escape(f'expected a trailer section smaller than {test_limits.max_trailer_size!r} bytes, got {trailer_size!r} bytes')
+                    match=re.escape(f'expected a trailer section smaller than {test_limits.max_trailer_section_size!r} bytes, got {trailer_size!r} bytes')
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 
