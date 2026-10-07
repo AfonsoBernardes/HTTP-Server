@@ -19,10 +19,10 @@ from request.exceptions import (
     InvalidHTTPProtocol,
     InvalidRequestLine,
     InvalidTransferEncoding,
+    TooManyChunks,
     TrailerSectionTooLarge,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
-    TooManyChunks,
 )
 from request.schema import HTTPRequestMethod
 from server.config import DEFAULT_LIMITS, ServerLimits
@@ -154,12 +154,11 @@ def parse_chunked_body(
                     raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_size)
             break
 
-
         if body_size + chunk_size > limits.max_body_size:
             raise BodyTooLarge(body_size + chunk_size, limits.max_body_size)
 
         if len(chunks) >= limits.max_chunk_count:
-            raise TooManyChunks(chunk_count=len(chunks)+1, max_chunk_count=limits.max_chunk_count)
+            raise TooManyChunks(chunk_count=len(chunks) + 1, max_chunk_count=limits.max_chunk_count)
 
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
         chunks.append(body_chunk)
