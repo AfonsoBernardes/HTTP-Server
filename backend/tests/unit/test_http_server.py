@@ -22,7 +22,10 @@ from request.exceptions import (
     ChunkTooLarge,
     IncompleteChunkedBody,
     InvalidChunkDelimiter,
-    InvalidRequestLine, ChunkLineTooLarge, TrailerSectionTooLarge, TooManyChunks,
+    InvalidRequestLine,
+    ChunkLineTooLarge,
+    TrailerSectionTooLarge,
+    TooManyChunks,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
