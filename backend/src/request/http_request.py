@@ -122,9 +122,7 @@ def parse_headers(request_headers: str) -> Tuple[
     return method, url, protocol, headers
 
 
-def parse_chunked_body(
-    client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
-) -> bytes:
+def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS) -> bytes:
     chunks: List[bytes] = []
     body_size: int = 0
 
@@ -201,11 +199,7 @@ def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -
 
 class HTTPRequest:
     def __init__(
-        self,
-        method: HTTPRequestMethod,
-        url:str,
-        protocol: HTTPProtocol,
-        headers: Dict[str, List[str]]
+        self, method: HTTPRequestMethod, url: str, protocol: HTTPProtocol, headers: Dict[str, List[str]]
     ) -> None:
         self.method = method
         self.url = url
