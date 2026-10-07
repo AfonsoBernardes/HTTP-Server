@@ -200,18 +200,18 @@ def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -
 
 
 class HTTPRequest:
-    method: HTTPRequestMethod
-    url: str
-    protocol: HTTPProtocol
-    headers: Dict[str, List[str]]
-    body: Optional[str]
-
-    def __init__(self, method, url, protocol, headers):
+    def __init__(
+        self,
+        method: HTTPRequestMethod,
+        url:str,
+        protocol: HTTPProtocol,
+        headers: Dict[str, List[str]]
+    ):
         self.method = method
         self.url = url
         self.protocol = protocol
         self.headers = headers
-        self.body = None
+        self.body: Optional[str] = None
 
     def parse_body(
         self, client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
