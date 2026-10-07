@@ -154,16 +154,16 @@ def parse_chunked_body(
                     raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_size)
             break
 
-        body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
 
         if body_size + chunk_size > limits.max_body_size:
             raise BodyTooLarge(body_size + chunk_size, limits.max_body_size)
 
+        if len(chunks) >= limits.max_chunk_count:
+            raise TooManyChunks(chunk_count=len(chunks)+1, max_chunk_count=limits.max_chunk_count)
+
+        body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
         chunks.append(body_chunk)
         body_size += chunk_size
-
-        if len(chunks) > limits.max_chunk_count:
-            raise TooManyChunks(chunk_count=len(chunks), max_chunk_count=limits.max_chunk_count)
 
         delimiter, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
         if delimiter != b"\r\n":
@@ -266,10 +266,6 @@ class HTTPRequest:
 
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
-
-        # body_size = len(raw_body) if raw_body else 0
-        # if body_size > limits.max_body_size:
-        #     raise BodyTooLarge(body_size=body_size, max_body_size=limits.max_body_size)
 
         try:
             self.body = raw_body.decode(encoding="UTF-8", errors="strict") if raw_body else None
