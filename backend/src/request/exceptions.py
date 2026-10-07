@@ -1,3 +1,4 @@
+from socket import socket
 from typing import Any, List, Optional
 
 from displayable_exceptions.http_exception import HTTPServerException
@@ -5,6 +6,13 @@ from request.schema import HTTPRequestMethod
 from response.schema import HTTPResponseStatusCode
 from server.config import DEFAULT_LIMITS
 from server.schema import HTTPProtocol
+
+
+class InvalidRequestLine(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, request_line: str):
+        super().__init__(f"invalid request line: expected '<METHOD> <TARGET> <PROTOCOL>', got {request_line!r}")
 
 
 class InvalidHTTPMethod(HTTPServerException):
@@ -44,6 +52,16 @@ class InvalidHTTPHeaderKey(HTTPServerException):
         super().__init__(f"invalid HTTP header key {key!r}: character '{invalid_char}' is not accepted")
 
 
+class InvalidHTTPHeaderValue(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, key: str, value: str, invalid_char: str):
+        invalid_char = invalid_char if invalid_char.isprintable() else f"\\x{ord(invalid_char):02x}"
+        super().__init__(
+            f"invalid HTTP header value {value!r} in key {key!r}: character '{invalid_char}' is not accepted"
+        )
+
+
 class DuplicateHTTPHeader(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
@@ -75,15 +93,38 @@ class InvalidChunkSize(HTTPServerException):
 
     def __init__(self, chunk_size: Optional[Any]):
         chunk_size_string = f"{chunk_size!r}" if chunk_size else ""
-        super().__init__(f"chunk size must be a positive integer in hexadecimal format, got {chunk_size_string!r}")
+        super().__init__(f"chunk size must be a non-negative integer in hexadecimal format, got {chunk_size_string!r}")
+
+
+class TooManyChunks(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_413
+
+    def __init__(self, chunk_count: int, max_chunk_count: int = DEFAULT_LIMITS.max_chunk_count):
+        super().__init__(f"expected a body with at most {max_chunk_count!r} chunks, got at least {chunk_count!r}")
+
+
+class InvalidChunkDelimiter(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, delimiter: bytes):
+        super().__init__(f"chunk data must be followed by '\\r\\n', got {delimiter!r}")
+
+
+class AmbiguousBodyLength(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self):
+        super().__init__("expected only one of 'Transfer-Encoding' or 'Content-Length', got both")
 
 
 class InvalidContentLength(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
     def __init__(self, content_length: Optional[Any]):
-        content_length_string = f": {content_length!r}" if content_length else ""
-        super().__init__(f"'Content-Length'{content_length_string} is not an integer greater or equal to zero")
+        content_length_string = f"{content_length!r}" if content_length else ""
+        super().__init__(
+            f"expected 'Content-Length' to be an integer greater or equal to zero, got {content_length_string}"
+        )
 
 
 class InvalidBodyLength(HTTPServerException):
@@ -93,11 +134,36 @@ class InvalidBodyLength(HTTPServerException):
         super().__init__(f"expected body with length {expected_length}, got {body_length} bytes")
 
 
-class ChunkSizeTooLarge(HTTPServerException):
+class ChunkTooLarge(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_413
 
     def __init__(self, chunk_size: int, max_chunk_size: int = DEFAULT_LIMITS.max_chunk_size):
-        super().__init__(f"expected a chunk size smaller than {max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+        super().__init__(f"expected a chunk smaller than {max_chunk_size!r} bytes, got {chunk_size!r} bytes")
+
+
+class ChunkLineTooLarge(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_413
+
+    def __init__(self, chunk_line_size: int, max_chunk_line_size: int):
+        super().__init__(
+            f"expected a chunk line smaller than {max_chunk_line_size!r} bytes, got at least {chunk_line_size!r} bytes"
+        )
+
+
+class TrailerSectionTooLarge(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_413
+
+    def __init__(self, trailer_size: int, max_trailer_size: int):
+        super().__init__(
+            f"expected a trailer section smaller than {max_trailer_size!r} bytes, got {trailer_size!r} bytes"
+        )
+
+
+class IncompleteChunkedBody(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_400
+
+    def __init__(self, client_connection: socket):
+        super().__init__(f"client connection {client_connection!r} closed before the full chunked body was received")
 
 
 class BodyTooLarge(HTTPServerException):

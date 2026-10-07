@@ -3,17 +3,25 @@ from socket import socket
 from typing import Dict, List, Optional, Tuple
 
 from request.exceptions import (
+    AmbiguousBodyLength,
     BodyTooLarge,
-    ChunkSizeTooLarge,
+    ChunkLineTooLarge,
+    ChunkTooLarge,
     DuplicateHTTPHeader,
+    IncompleteChunkedBody,
     InvalidBodyLength,
+    InvalidChunkDelimiter,
     InvalidChunkSize,
     InvalidContentLength,
     InvalidHTTPHeaderKey,
     InvalidHTTPHeaders,
+    InvalidHTTPHeaderValue,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
+    InvalidRequestLine,
     InvalidTransferEncoding,
+    TooManyChunks,
+    TrailerSectionTooLarge,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
 )
@@ -22,8 +30,10 @@ from server.config import DEFAULT_LIMITS, ServerLimits
 from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
 
-INVALID_HEADER_KEY_CHARS = re.compile(r'[\x00-\x1f\x7f\s()<>@,;:\\"/\[\]?={}]')
+INVALID_HEADER_KEY_CHARS = re.compile(r"[^!#$%&'*+\-.^_`|~0-9A-Za-z]")
+INVALID_HEADER_VALUE_CHAR = re.compile(r"[\x00\r\n]")  # NUL, CR and LF (RFC 9110 §5.5)
 
+VALID_CONTENT_LENGTH = re.compile(r"[0-9]+")
 VALID_CHUNK_SIZE = re.compile(rb"^[0-9A-Fa-f]+$")
 
 SINGLE_VALUE_HEADERS = {
@@ -31,8 +41,30 @@ SINGLE_VALUE_HEADERS = {
     "content-type",
     "host",
     "authorization",
-    "content-encoding",
 }
+
+COMMA_SEPARATED_VALUE_HEADERS = {
+    "accept",
+    "accept-encoding",
+    "accept-language",
+    "cache-control",
+    "connection",
+    "content-encoding",
+    "te",
+    "trailer",
+    "transfer-encoding",
+    "upgrade",
+    "vary",
+    "via",
+}
+
+
+def receive_chunked_data(client_connection: socket) -> bytes:
+    chunk_data = client_connection.recv(1024)
+    if not chunk_data:  # client closed the connection before sending the full body
+        raise IncompleteChunkedBody(client_connection)
+
+    return chunk_data
 
 
 def parse_headers(request_headers: str) -> Tuple[
@@ -44,21 +76,31 @@ def parse_headers(request_headers: str) -> Tuple[
     request_headers = request_headers.split("\r\n")
 
     # parse request line: <METHOD> <TARGET> <PROTOCOL>
-    request_line = request_headers.pop(0)
-    request_line = request_line.split(" ", maxsplit=3)
+    raw_request_line = request_headers.pop(0)
+    request_line = raw_request_line.split(" ", maxsplit=2)
+    if len(request_line) != 3:
+        raise InvalidRequestLine(raw_request_line)
 
     headers = {}
     for header in request_headers:
         try:
-            key, value = header.rsplit(":", maxsplit=1)
+            key, value = header.split(":", maxsplit=1)
+            if not key:
+                raise InvalidHTTPHeaders()
 
-            invalid_char_match = INVALID_HEADER_KEY_CHARS.search(key)
-            if invalid_char_match:
-                invalid_char = invalid_char_match.group()
-                raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_char)
+            invalid_key_char = INVALID_HEADER_KEY_CHARS.search(key)
+            if invalid_key_char:
+                raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_key_char.group())
+
+            invalid_value_char = INVALID_HEADER_VALUE_CHAR.search(value)
+            if invalid_value_char:
+                raise InvalidHTTPHeaderValue(key=key, value=value, invalid_char=invalid_value_char.group())
 
             key = key.lower()
-            value_list = [value.strip() for value in value.split(",")]
+            if key in COMMA_SEPARATED_VALUE_HEADERS:
+                value_list = [value.strip() for value in value.split(",")]
+            else:
+                value_list = [value.strip()]
 
             for value in value_list:
                 if key not in headers:
@@ -87,15 +129,12 @@ def parse_headers(request_headers: str) -> Tuple[
     return method, url, protocol, headers
 
 
-def parse_chunked_body(
-    client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
-) -> Optional[bytes]:
-    raw_body = b""
-    while True:
-        while b"\r\n" not in body_buffer:
-            body_buffer += client_connection.recv(1024)
+def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS) -> bytes:
+    chunks: List[bytes] = []
+    body_size: int = 0
 
-        chunk_size_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+    while True:
+        chunk_size_line, body_buffer = read_line(client_connection, body_buffer, limits.max_chunk_line_size)
 
         chunk_size = chunk_size_line.split(b";", maxsplit=1)[0]  # ignore extensions
         if not chunk_size or not VALID_CHUNK_SIZE.fullmatch(chunk_size):
@@ -103,31 +142,61 @@ def parse_chunked_body(
 
         chunk_size = int(chunk_size.decode("ascii"), 16)
         if chunk_size > limits.max_chunk_size:
-            raise ChunkSizeTooLarge(chunk_size)
+            raise ChunkTooLarge(chunk_size, limits.max_chunk_size)
 
         if chunk_size == 0:
+            trailer_size = 0
             while True:
-                while b"\r\n" not in body_buffer:
-                    body_buffer += client_connection.recv(1024)
+                # check if current request has trailer sections to be discarded, must be read to find final empty line
+                trailer_line, body_buffer = read_line(client_connection, body_buffer, limits.max_chunk_line_size)
 
-                # check if current request has trailer sections to be discarded
-                current_request_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
-                if current_request_line == b"":
+                if trailer_line == b"":
                     # buffer is clean, contains only subsequent request data
                     break
+
+                trailer_size += len(trailer_line)
+                if trailer_size > limits.max_trailer_size:
+                    raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_size)
             break
 
+        if body_size + chunk_size > limits.max_body_size:
+            raise BodyTooLarge(body_size + chunk_size, limits.max_body_size)
+
+        if len(chunks) >= limits.max_chunk_count:
+            raise TooManyChunks(chunk_count=len(chunks) + 1, max_chunk_count=limits.max_chunk_count)
+
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
-        raw_body += body_chunk
-        _, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
+        chunks.append(body_chunk)
+        body_size += chunk_size
+
+        delimiter, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
+        if delimiter != b"\r\n":
+            raise InvalidChunkDelimiter(delimiter)
 
     # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
+    raw_body = b"".join(chunks)
     return raw_body
+
+
+def read_line(client_connection: socket, body_buffer: bytes, max_line_size: int) -> Tuple[bytes, bytes]:
+    while b"\r\n" not in body_buffer:
+        if len(body_buffer) > max_line_size + 1:  # +1: "\r" present but "\n" hasn't arrived yet
+            raise ChunkLineTooLarge(chunk_line_size=len(body_buffer), max_chunk_line_size=max_line_size)
+
+        chunk_data = receive_chunked_data(client_connection)
+        body_buffer += chunk_data
+
+    chunk_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+    if len(chunk_line) > max_line_size:
+        raise ChunkLineTooLarge(chunk_line_size=len(chunk_line), max_chunk_line_size=max_line_size)
+
+    return chunk_line, body_buffer
 
 
 def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -> Tuple[bytes, bytes]:
     while len(body_buffer) < chunk_size:
-        body_buffer += client_connection.recv(1024)
+        chunk_data = receive_chunked_data(client_connection)
+        body_buffer += chunk_data
 
     body_chunk = body_buffer[:chunk_size]
     body_buffer = body_buffer[chunk_size:]
@@ -136,18 +205,14 @@ def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -
 
 
 class HTTPRequest:
-    method: HTTPRequestMethod
-    url: str
-    protocol: HTTPProtocol
-    headers: Dict[str, List[str]]
-    body: Optional[str]
-
-    def __init__(self, method, url, protocol, headers):
+    def __init__(
+        self, method: HTTPRequestMethod, url: str, protocol: HTTPProtocol, headers: Dict[str, List[str]]
+    ) -> None:
         self.method = method
         self.url = url
         self.protocol = protocol
         self.headers = headers
-        self.body = None
+        self.body: Optional[str] = None
 
     def parse_body(
         self, client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
@@ -155,6 +220,9 @@ class HTTPRequest:
         # keys are already lower case from "parse_headers" function
         transfer_encoding = self.headers.get("transfer-encoding", None)
         content_length = self.headers.get("content-length", None)
+
+        if transfer_encoding is not None and content_length is not None:
+            raise AmbiguousBodyLength()
 
         raw_body = b""
         if transfer_encoding is not None:
@@ -171,15 +239,16 @@ class HTTPRequest:
 
         elif content_length is not None:  # "Content-Length" is present
             content_length = content_length[0]
+            if not VALID_CONTENT_LENGTH.fullmatch(content_length):
+                raise InvalidContentLength(content_length=content_length)
+
             try:
                 content_length = int(content_length)  # "Content-Length" should be unique
             except ValueError:  # can't convert to integer, like empty string
                 raise InvalidContentLength(content_length=content_length)
-            else:  # can convert to integer but still invalid like negative number
-                if content_length < 0:
-                    raise InvalidContentLength(content_length=content_length)
-                elif content_length > limits.max_body_size:
-                    raise BodyTooLarge(content_length)
+            else:
+                if content_length > limits.max_body_size:
+                    raise BodyTooLarge(content_length, limits.max_body_size)
 
             if content_length > 0:
                 while len(body_buffer) < content_length:
@@ -197,10 +266,6 @@ class HTTPRequest:
 
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
-
-        body_size = len(raw_body) if raw_body else 0
-        if body_size > limits.max_body_size:
-            raise BodyTooLarge(body_size=body_size, max_body_size=limits.max_body_size)
 
         try:
             self.body = raw_body.decode(encoding="UTF-8", errors="strict") if raw_body else None

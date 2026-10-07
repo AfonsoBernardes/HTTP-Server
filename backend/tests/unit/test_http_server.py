@@ -1,12 +1,13 @@
 import logging
 import re
-from typing import Optional, Any
+from typing import Optional, Any, List
 
 import pytest
 from asserts import assert_equal, assert_in, assert_is_none
 
 from conftest import FakeSocket
 from request.exceptions import (
+    AmbiguousBodyLength,
     DuplicateHTTPHeader,
     InvalidHTTPHeaders,
     InvalidHTTPMethod,
@@ -18,7 +19,15 @@ from request.exceptions import (
     BodyTooLarge,
     UnspecifiedBodyLength,
     InvalidChunkSize,
-    ChunkSizeTooLarge,
+    ChunkTooLarge,
+    IncompleteChunkedBody,
+    InvalidChunkDelimiter,
+    InvalidRequestLine,
+    ChunkLineTooLarge,
+    TrailerSectionTooLarge,
+    TooManyChunks,
+    InvalidHTTPHeaderKey,
+    InvalidHTTPHeaderValue,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
@@ -96,6 +105,97 @@ class TestServerHeaderHandling:
         assert_in(InvalidRequest().base_message, caplog.text)
 
     @pytest.mark.parametrize(
+        "request_line_bytes, request_line_str",
+        [
+            (b"\r\n\r\n", ""),
+            (b"GET\r\n\r\n", "GET"),
+            (b"GET /\r\n\r\n", "GET /"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_request_line(self, caplog, request_line_bytes: bytes, request_line_str: str):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            request_line_bytes
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidRequestLine.status_code)
+        assert_in(InvalidRequestLine(request_line_str).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "invalid_header_key, invalid_char",
+        [
+            (b"Header Key", " "),
+            (b"Header\nKey", "\\x0a"),
+            (b"Header\rKey", "\\x0d"),
+            (b"Header\tKey", "\\x09"),
+            (b"HeaderKey[", "["),
+            (b"HeaderKey]", "]"),
+            (b"HeaderKey\\", "\\"),
+            (b"HeaderKey/", "/"),
+            (b"HeaderKey<", "<"),
+            (b"HeaderKey>", ">"),
+            (b"HeaderKey@", "@"),
+            (b"HeaderKey,", ","),
+            (b"HeaderKey;", ";"),
+            (b"HeaderKey{", "{"),
+            (b"HeaderKey}", "}"),
+            (b"HeaderKey\x7f", "\\x7f"),
+            (b"HeaderKey(", "("),
+            (b"HeaderKey?", "?"),
+            (b"HeaderKey=", "="),
+            (b"Header\x00Key", "\\x00"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_headers_with_invalid_key_characters(self, caplog, invalid_header_key: bytes, invalid_char):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"GET / HTTP/1.1\r\n",
+            invalid_header_key,
+            b": Header Value\r\n\r\n"
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidHTTPHeaderKey.status_code)
+        assert_in(InvalidHTTPHeaderKey(key=invalid_header_key.decode(encoding="UTF-8", errors="strict"), invalid_char=invalid_char).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "header_line, key, invalid_header_value, invalid_char",
+        [
+            (b"X-Test: \x00value","X-Test", " \x00value", "\\x00"),  # at the start
+            (b"X-Test: value\x00", "X-Test", " value\x00", "\\x00"),  # at the end
+            (b"X-Test: value\r", "X-Test", " value\r","\\x0d"),  # trailing bare CR
+            (b"X-Test: value\n", "X-Test", " value\n","\\x0a"),  # trailing bare LF
+            (b"X-Test:\r", "X-Test", "\r", "\\x0d"),  # nothing but a bare CR
+            (b"X-Test: a\rb\nc\x00d", "X-Test", " a\rb\nc\x00d","\\x0d"),  # several bad characters: the first one is reported
+            (b"Host: localhost\r\nX-Test: a\nb", "X-Test", " a\nb","\\x0a"),  # not only the first header is checked
+            (b"Accept: text/html,\napplication/json", "Accept", " text/html,\napplication/json", "\\x0a"),  # checked before a list header is split
+            (b"Content-Length: 5\n", "Content-Length", " 5\n", "\\x0a"),  # single-value headers too
+            (b"x-test: a\nb", "x-test", " a\nb", "\\x0a"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_headers_with_invalid_value_characters(self, caplog, header_line: bytes, key: str, invalid_header_value: str, invalid_char):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"GET / HTTP/1.1\r\n",
+            header_line,
+            b"\r\n\r\n"
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidHTTPHeaderValue.status_code)
+        assert_in(InvalidHTTPHeaderValue(key=key, value=invalid_header_value, invalid_char=invalid_char).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
         "invalid_header_encoding",
         [
             b"GET / HTTP/1.1\r\nSomething: \xff\r\n\r\n",
@@ -122,6 +222,8 @@ class TestServerHeaderHandling:
     @pytest.mark.parametrize(
         "invalid_headers",
         [
+            b"GET / HTTP/1.1\r\n \r\n\r\n"
+            b"GET / HTTP/1.1\r\n: Header Value\r\n\r\n"
             b"GET / HTTP/1.1\r\nInvalid-Headers Test\r\n\r\n",
             b"GET / HTTP/1.1\r\nInvalidHeaders - Test\r\n\r\n",
         ],
@@ -146,7 +248,6 @@ class TestServerHeaderHandling:
             (b"POST / HTTP/1.1\r\nContent-Length: 0\r\ncontent-length: 0\r\n\r\n", "content-length", 2),
             (b"POST / HTTP/1.1\r\nHost: Host 1\r\nhost: Host 2\r\nHOST: Host3\r\n\r\n", "host", 3),
             (b"POST / HTTP/1.1\r\nAUTHORIZATION: BearerXYZ\r\nAuthorization: BearerZYX\r\n\r\n", "authorization", 2),
-            (b"POST / HTTP/1.1\r\nContent-Encoding: gzip, compressed,deflate\r\n\r\n", "content-encoding", 3),
         ],
     )
     @pytest.mark.asyncio
@@ -166,7 +267,6 @@ class TestServerHeaderHandling:
         "invalid_headers, invalid_method",
         [
             (b" / HTTP/1.1\r\n\r\n", ""),
-            (b"/ HTTP/1.1\r\n\r\n", "/"),
             (b"INVALID / HTTP/1.1\r\n\r\n", "INVALID"),
         ],
     )
@@ -250,9 +350,15 @@ class TestServerHeaderHandling:
     @pytest.mark.parametrize(
         "headers, invalid_content_length",
         [
-            (b"GET / HTTP/1.1\r\nContent-Length: ABC\r\n\r\n", "ABC"),
-            (b"GET / HTTP/1.1\r\nContent-Length: -1\r\n\r\n", -1),
-            (b"GET / HTTP/1.1\r\nContent-Length: \r\n\r\n", None)
+            (b"POST / HTTP/1.1\r\nContent-Length: \r\n\r\n", None),
+            (b"POST / HTTP/1.1\r\nContent-Length: +5\r\n\r\n", "+5"),
+            (b"POST / HTTP/1.1\r\nContent-Length: -5\r\n\r\n", "-5"),
+            (b"POST / HTTP/1.1\r\nContent-Length: -0\r\n\r\n", "-0"),
+            (b"POST / HTTP/1.1\r\nContent-Length: 1_0\r\n\r\n", "1_0"),
+            (b"POST / HTTP/1.1\r\nContent-Length: 0x5\r\n\r\n", "0x5"),
+            (b"POST / HTTP/1.1\r\nContent-Length: 5.0\r\n\r\n", "5.0"),
+            (b"POST / HTTP/1.1\r\nContent-Length: 5, 5\r\n\r\n", "5, 5"),
+            (b"POST / HTTP/1.1\r\nContent-Length: one\r\n\r\n", "one"),
         ],
     )
     @pytest.mark.asyncio
@@ -318,8 +424,8 @@ class TestServerHeaderHandling:
         with caplog.at_level(logging.ERROR):
             response = http_server.handle_request(fake_connection)
 
-        assert_equal(response.status_code, ChunkSizeTooLarge.status_code)
-        assert_in(ChunkSizeTooLarge(large_chunk_size).base_message, caplog.text)
+        assert_equal(response.status_code, ChunkTooLarge.status_code)
+        assert_in(ChunkTooLarge(large_chunk_size).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_line, request_method",
@@ -377,6 +483,29 @@ class TestServerBodyHandling:
 
 
     @pytest.mark.parametrize(
+        "headers",
+        [
+            b"Content-Length: 1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            b"Transfer-Encoding: gzip\r\nContent-Length: 1\r\n\r\n",
+            b"Content-Length:\r\nTransfer-Encoding: chunked\r\n\r\n",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_both_transfer_encoding_and_content_length(self, caplog, headers: bytes):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\n",
+            headers
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, AmbiguousBodyLength.status_code)
+        assert_in(AmbiguousBodyLength().base_message, caplog.text)
+
+
+    @pytest.mark.parametrize(
         "invalid_body_encoding",
         [
             b"POST / HTTP/1.1\r\nContent-Length: 1\r\n\r\n\xff",
@@ -399,6 +528,32 @@ class TestServerBodyHandling:
 
         assert_equal(response.status_code, InvalidDecoding.status_code)
         assert_in(InvalidDecoding().base_message, caplog.text)
+
+
+    @pytest.mark.parametrize(
+        "socket_chunks",
+        [
+            [b"5"],  # chunk-size line never finishes
+            [b"5\r\nabc"],  # chunk data cut short (3 of 5 bytes)
+            [b"3\r\nabc"],  # delimiter after chunk data missing
+            [b"0\r\n"],  # zero-size chunk, no final blank line
+            [b"0\r\nX-Trailer: a\r\n"],  # trailer present, no final blank line
+            [b"3\r\nab"],  # data arrives via recv(), then disconnect
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_incomplete_chunked_body(self, caplog, socket_chunks: List[bytes]):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            *socket_chunks,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, IncompleteChunkedBody.status_code)
+        assert_in(IncompleteChunkedBody(client_connection=fake_connection).base_message, caplog.text)
 
 
     @pytest.mark.parametrize(
@@ -428,6 +583,56 @@ class TestServerBodyHandling:
         assert_equal(response.status_code, InvalidChunkSize.status_code)
         assert_in(InvalidChunkSize(invalid_chunk_size).base_message, caplog.text)
 
+    @pytest.mark.parametrize(
+        "socket_chunks, chunk_line_size",
+        [
+            ([b"AAAAAAA"], 7),  # no CRLF, chunk line too long
+            ([b"AAAAAA\r\n"], 6),  # CRLF present line too long
+            ([b"AAA", b"AAA\r\n"], 6),
+            ([b"3;XXXX\r\n"], 6),  # chunk extension too long
+            ([b"0\r\nX: AAA\r\n\r\n"], 6),  # trailer line too long
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_chunk_line_too_large(self, caplog, socket_chunks: List[bytes], chunk_line_size: int):
+        test_limits = ServerLimits(max_chunk_line_size=5)
+
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            *socket_chunks
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection, test_limits)
+
+        assert_equal(response.status_code, ChunkLineTooLarge.status_code)
+        assert_in(ChunkLineTooLarge(chunk_line_size=chunk_line_size, max_chunk_line_size=test_limits.max_chunk_line_size).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "socket_chunks, trailer_size",
+        [
+            ([b"3\r\nABC\r\n0\r\nX:1\r\nY:2\r\n"], 6),
+            ([b"3\r\nABC\r\n0\r\nX:1\r\n", b"Y:2\r\n"], 6),
+            ([b"3\r\nABC\r\n0\r", b"\nX:1\r\nY:2\r\n"], 6),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_trailer_section_too_large(self, caplog, socket_chunks: List[bytes], trailer_size: int):
+        test_limits = ServerLimits(max_trailer_size=5)
+
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            *socket_chunks
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection, test_limits)
+
+        assert_equal(response.status_code, TrailerSectionTooLarge.status_code)
+        assert_in(TrailerSectionTooLarge(trailer_size=trailer_size, max_trailer_size=test_limits.max_trailer_size).base_message, caplog.text)
+
     @pytest.mark.asyncio
     async def test_should_fail_to_handle_request_with_too_large_body(self, caplog):
         http_server = HTTPServer()
@@ -441,6 +646,56 @@ class TestServerBodyHandling:
 
         assert_equal(response.status_code, BodyTooLarge.status_code)
         assert_in(BodyTooLarge(body_size=3, max_body_size=test_limits.max_body_size).base_message, caplog.text)
+
+
+    @pytest.mark.parametrize(
+        "socket_chunks, chunk_count",
+        [
+            ([b"1\r\nA\r\n1\r\nB\r\n1\r\nC\r\n0\r\n\r\n"], 3),
+            ([b"1\r\nA\r", b"\n1\r\nB", b"\r\n1\r\nC\r\n", b"0\r\n\r\n"], 3),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_too_many_chunks(self, caplog, socket_chunks: List[bytes], chunk_count: int):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            *socket_chunks,
+        ])
+
+        test_limits = ServerLimits(max_chunk_count=2)
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection, test_limits)
+
+        assert_equal(response.status_code, TooManyChunks.status_code)
+        assert_in(TooManyChunks(chunk_count=chunk_count, max_chunk_count=test_limits.max_chunk_count).base_message, caplog.text)
+
+
+    @pytest.mark.parametrize(
+        "socket_chunks, delimiter",
+        [
+            ([b"3\r\nabcXX0\r\n\r\n"], b"XX"),  # arbitrary bytes instead of CRLF
+            ([b"3\r\nabcd\r\n0\r\n\r\n"], b"d\r"),  # client sent more data than the declared size
+            ([b"3\r\nabc\n\r0\r\n\r\n"], b"\n\r"),  # CR and LF swapped
+            ([b"3\r\nabc\r\r0\r\n\r\n"], b"\r\r"),  # CR without LF
+            ([b"3\r\nabc  0\r\n\r\n"], b"  "),  # spaces instead of CRLF
+            ([b"3\r\nabc", b"XX0\r\n\r\n"], b"XX"),  # delimiter in second chunk
+            ([b"3\r\nabc\r", b"X0\r\n\r\n"], b"\rX"),  # delimiter split between chunks
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_invalid_chunk_delimiter(self, caplog, socket_chunks: List[bytes], delimiter: bytes):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\n\r\n",
+            *socket_chunks,
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidChunkDelimiter.status_code)
+        assert_in(InvalidChunkDelimiter(delimiter=delimiter).base_message, caplog.text)
 
 
 class TestServerRouting:
