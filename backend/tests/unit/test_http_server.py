@@ -28,8 +28,10 @@ from request.exceptions import (
     TooManyChunks,
     InvalidHTTPHeaderKey,
     InvalidHTTPHeaderValue,
+    HeaderSectionTooLarge,
 )
 from request.schema import HTTPRequestMethod
+from response.schema import HTTPResponseStatusCode
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
 from router.http_router import HTTPRouter
 from server.config import ServerLimits
@@ -240,6 +242,38 @@ class TestServerHeaderHandling:
 
         assert_equal(response.status_code, InvalidHTTPHeaders.status_code)
         assert_in(InvalidHTTPHeaders().base_message, caplog.text)
+
+    @pytest.mark.asyncio
+    async def test_should_accept_header_section_crossing_the_limit_in_a_single_read(self):
+        test_limits = ServerLimits(max_header_section_size=20)
+        http_server = HTTPServer()
+
+        # 16 bytes buffered (under the limit), then one read brings the rest: the section is 38 bytes
+        fake_connection = FakeSocket([b"GET / HTTP/1.1\r\n", b"Host: localhost:8000\r\n\r\n"])
+
+        response = http_server.handle_request(fake_connection, test_limits)
+        assert_equal(response.status_code, HTTPResponseStatusCode.HTTP_404)  # accepted, then not routed
+
+    @pytest.mark.parametrize(
+        "socket_chunks, header_size",
+        [
+            ([b"GET / HTTP/1.1\r\n", b"Host: localhost:8000\r\n", b"\r\n"], 38),  # over the limit before the blank line arrives
+            ([b"GET / HTTP/1.1\r\n", b"ABC: 123\r\nXYZ: 456\r\n", b"ABC: 123\r\nXYZ: 456"], 36),  # a line that never ends
+            ([b"GET / HTTP/1.1\r\n", b"A:B\r\n", b"\r\n"], 21),  # one over the limit, includes CRLF
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_handle_request_with_header_section_too_large(self, caplog, socket_chunks: List[bytes], header_size: int):
+        test_limits = ServerLimits(max_header_section_size=20)
+
+        http_server = HTTPServer()
+        fake_connection = FakeSocket(socket_chunks)
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection, test_limits)
+
+        assert_equal(response.status_code, HeaderSectionTooLarge.status_code)
+        assert_in(HeaderSectionTooLarge(header_size=header_size, max_header_size=test_limits.max_header_section_size).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "request_headers, header_key, num_values",
