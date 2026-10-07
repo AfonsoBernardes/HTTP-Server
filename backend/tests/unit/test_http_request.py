@@ -25,7 +25,8 @@ from request.exceptions import (
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
     TrailerSectionTooLarge,
-    TooManyChunks, InvalidHTTPHeaderValue,
+    TooManyChunks,
+    InvalidHTTPHeaderValue,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
