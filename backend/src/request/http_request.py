@@ -22,6 +22,7 @@ from request.exceptions import (
     TrailerSectionTooLarge,
     UnspecifiedBodyLength,
     UnsupportedTransferEncoding,
+    TooManyChunks,
 )
 from request.schema import HTTPRequestMethod
 from server.config import DEFAULT_LIMITS, ServerLimits
@@ -124,7 +125,9 @@ def parse_headers(request_headers: str) -> Tuple[
 def parse_chunked_body(
     client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
 ) -> Optional[bytes]:
-    raw_body = b""
+    chunks: List[bytes] = []
+    body_size: int = 0
+
     while True:
         chunk_size_line, body_buffer = read_line(client_connection, body_buffer, limits.max_chunk_line_size)
 
@@ -152,13 +155,22 @@ def parse_chunked_body(
             break
 
         body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
-        raw_body += body_chunk
+
+        if body_size + chunk_size > limits.max_body_size:
+            raise BodyTooLarge(body_size + chunk_size, limits.max_body_size)
+
+        chunks.append(body_chunk)
+        body_size += chunk_size
+
+        if len(chunks) > limits.max_chunk_count:
+            raise TooManyChunks(chunk_count=len(chunks), max_chunk_count=limits.max_chunk_count)
 
         delimiter, body_buffer = read_exact(client_connection, body_buffer, 2)  # read and ignore delimiter
         if delimiter != b"\r\n":
             raise InvalidChunkDelimiter(delimiter)
 
     # TODO: When keep-alive connections introduced, need to carry body_buffer, not discard it
+    raw_body = b"".join(chunks)
     return raw_body
 
 
@@ -255,9 +267,9 @@ class HTTPRequest:
         elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
             raise UnspecifiedBodyLength(method=self.method)
 
-        body_size = len(raw_body) if raw_body else 0
-        if body_size > limits.max_body_size:
-            raise BodyTooLarge(body_size=body_size, max_body_size=limits.max_body_size)
+        # body_size = len(raw_body) if raw_body else 0
+        # if body_size > limits.max_body_size:
+        #     raise BodyTooLarge(body_size=body_size, max_body_size=limits.max_body_size)
 
         try:
             self.body = raw_body.decode(encoding="UTF-8", errors="strict") if raw_body else None

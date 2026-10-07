@@ -24,7 +24,7 @@ from request.exceptions import (
     InvalidTransferEncoding,
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
-    TrailerSectionTooLarge,
+    TrailerSectionTooLarge, TooManyChunks,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -380,6 +380,8 @@ class TestRequestBodyParsing:
                 (b"5;ext=X\r", [b"\nABCDE\r\n0\r\n\r\n"], "ABCDE"),  # line at limit, CRLF split across recv
                 (b"0\r\nX:A\r\n", [b"X:B\r\n\r\n"], None),  # max trailer section size
                 (b"0\r\nX:A\r\nX:B\r", [b"\n\r\n"], None),  # trailer line split between buffer and recv()
+                (b"1\r\nA\r\n1\r\nB\r\n1\r\nC\r\n1\r\nD\r\n0\r\n\r\n", [], "ABCD"),  # chunk count at limit
+                (b"1\r\nA\r\n1\r\nB\r\n", [b"1\r\nC\r\n", b"1\r\nD", b"\r\n0\r\n\r\n"], "ABCD"),
             ],
         )
         @pytest.mark.asyncio
@@ -389,6 +391,7 @@ class TestRequestBodyParsing:
                 max_chunk_size=8,
                 max_chunk_line_size=7,
                 max_trailer_size=10,
+                max_chunk_count=4,
             )
             fake_connection = FakeSocket(socket_chunks)
 
@@ -604,6 +607,33 @@ class TestRequestBodyParsing:
             with pytest.raises(
                     TrailerSectionTooLarge,
                     match=re.escape(f'expected a trailer section smaller than {test_limits.max_trailer_size!r} bytes, got {trailer_size!r} bytes')
+            ):
+                request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
+
+        @pytest.mark.parametrize(
+            "body_buffer, socket_chunks, chunk_count",
+            [
+                (b"1\r\nA\r\n1\r\nB\r\n1\r\nC\r\n0\r\n\r\n", [], 3),
+                (b"1\r\nA\r\n1\r\n", [b"B\r\n1\r\nC\r\n0\r\n\r\n"], 3),
+                (b"", [b"1\r\nA\r", b"\n1\r\nB", b"\r\n1\r\nC\r\n", b"0\r\n\r\n"], 3),
+            ],
+        )
+        @pytest.mark.asyncio
+        async def test_should_fail_to_handle_request_with_too_many_chunks(self, body_buffer: bytes, socket_chunks: List[bytes], chunk_count: int):
+            test_limits = ServerLimits(max_chunk_count=2)
+
+            fake_connection = FakeSocket(socket_chunks)
+
+            request = HTTPRequest(
+                method=HTTPRequestMethod.POST,
+                url="/",
+                protocol=HTTPProtocol.HTTP_1_1,
+                headers={"transfer-encoding": ["chunked"]},
+            )
+
+            with pytest.raises(
+                    TooManyChunks,
+                    match=re.escape(f'expected a body with at most {test_limits.max_chunk_count!r} chunks, got at least {chunk_count!r}')
             ):
                 request.parse_body(client_connection=fake_connection, body_buffer=body_buffer, limits=test_limits)
 

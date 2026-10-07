@@ -86,6 +86,13 @@ class InvalidChunkSize(HTTPServerException):
         super().__init__(f"chunk size must be a non-negative integer in hexadecimal format, got {chunk_size_string!r}")
 
 
+class TooManyChunks(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_413
+
+    def __init__(self, chunk_count: int, max_chunk_count: int = DEFAULT_LIMITS.max_chunk_count):
+        super().__init__(f"expected a body with at most {max_chunk_count!r} chunks, got at least {chunk_count!r}")
+
+
 class InvalidChunkDelimiter(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
