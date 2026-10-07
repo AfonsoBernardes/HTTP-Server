@@ -124,7 +124,7 @@ def parse_headers(request_headers: str) -> Tuple[
 
 def parse_chunked_body(
     client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
-) -> Optional[bytes]:
+) -> bytes:
     chunks: List[bytes] = []
     body_size: int = 0
 
