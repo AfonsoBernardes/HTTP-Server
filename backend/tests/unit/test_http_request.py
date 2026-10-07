@@ -25,7 +25,7 @@ from request.exceptions import (
     InvalidHTTPHeaderKey,
     InvalidChunkSize,
     TrailerSectionTooLarge,
-    TooManyChunks,
+    TooManyChunks, InvalidHTTPHeaderValue,
 )
 from request.http_request import HTTPRequest, parse_headers
 from request.schema import HTTPRequestMethod
@@ -123,11 +123,13 @@ class TestRequestHeadersParsing:
     @pytest.mark.parametrize(
         "request_headers, expected_headers",
         [
+
             ("Header-Key: Header Value", {"header-key": ["Header Value"]}),
             ("Header-Key:Header Value", {"header-key": ["Header Value"]}),
             ("Header-Key: Header:Value", {"header-key": ["Header:Value"]}),
             ("Header-Key: Header Value\r\nContent-Type: text/html", {"header-key": ["Header Value"], "content-type": ["text/html"]}),
             ("Header-Key: Header Value 1\r\nheader-key:Header Value 2\r\nContent-Type: text/html", {"header-key": ["Header Value 1" , "Header Value 2"], "content-type": ["text/html"]}),
+            ("Custom_Header.Key~1: Header Value", {"custom_header.key~1": ["Header Value"]}),
         ],
     )
     @pytest.mark.asyncio
@@ -202,15 +204,45 @@ class TestRequestHeadersParsing:
             ("HeaderKey{", "{"),
             ("HeaderKey}", "}"),
             ("HeaderKey\x7f", "\\x7f"),
+            ("HeaderKey(", "("),
+            ("HeaderKey?", "?"),
+            ("HeaderKey=", "="),
+            ("HeaderKéy", "é"),          # non-ASCII was accepted before
+            ("Header\x00Key", "\\x00"),
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_parse_request_headers_with_invalid_characters(self, invalid_header_key: str, invalid_char):
+    async def test_should_fail_to_parse_request_headers_with_invalid_key_characters(self, invalid_header_key: str, invalid_char):
         data = f'GET / HTTP/1.1\r\n{invalid_header_key}: Header Value'
 
         with pytest.raises(
                 InvalidHTTPHeaderKey,
                 match=re.escape(f"invalid HTTP header key {invalid_header_key!r}: character '{invalid_char}' is not accepted")
+        ):
+            parse_headers(data)
+
+    @pytest.mark.parametrize(
+        "header_line, key, invalid_header_value, invalid_char",
+        [
+            ("X-Test: \x00value","X-Test", " \x00value", "\\x00"),  # at the start
+            ("X-Test: value\x00", "X-Test", " value\x00", "\\x00"),  # at the end
+            ("X-Test: value\r", "X-Test", " value\r","\\x0d"),  # trailing bare CR
+            ("X-Test: value\n", "X-Test", " value\n","\\x0a"),  # trailing bare LF
+            ("X-Test:\r", "X-Test", "\r", "\\x0d"),  # nothing but a bare CR
+            ("X-Test: a\rb\nc\x00d", "X-Test", " a\rb\nc\x00d","\\x0d"),  # several bad characters: the first one is reported
+            ("Host: localhost\r\nX-Test: a\nb", "X-Test", " a\nb","\\x0a"),  # not only the first header is checked
+            ("Accept: text/html,\napplication/json", "Accept", " text/html,\napplication/json", "\\x0a"),  # checked before a list header is split
+            ("Content-Length: 5\n", "Content-Length", " 5\n", "\\x0a"),  # single-value headers too
+            ("x-test: a\nb", "x-test", " a\nb", "\\x0a"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_headers_with_invalid_value_characters(self, header_line: str, key: str, invalid_header_value: str, invalid_char):
+        data = f'GET / HTTP/1.1\r\n{header_line}'
+
+        with pytest.raises(
+                InvalidHTTPHeaderValue,
+                match=re.escape(f"invalid HTTP header value {invalid_header_value!r} in key {key!r}: character '{invalid_char}' is not accepted")
         ):
             parse_headers(data)
 
@@ -233,6 +265,8 @@ class TestRequestHeadersParsing:
     @pytest.mark.parametrize(
         "invalid_request_headers",
         [
+            ""
+            ": Value",
             "Server- Test",
             "Server Test Server",
         ],

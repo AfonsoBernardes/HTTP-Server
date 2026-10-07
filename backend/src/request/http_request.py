@@ -15,6 +15,7 @@ from request.exceptions import (
     InvalidContentLength,
     InvalidHTTPHeaderKey,
     InvalidHTTPHeaders,
+    InvalidHTTPHeaderValue,
     InvalidHTTPMethod,
     InvalidHTTPProtocol,
     InvalidRequestLine,
@@ -29,7 +30,8 @@ from server.config import DEFAULT_LIMITS, ServerLimits
 from server.exceptions import InvalidDecoding
 from server.schema import HTTPProtocol
 
-INVALID_HEADER_KEY_CHARS = re.compile(r'[\x00-\x1f\x7f\s()<>@,;:\\"/\[\]?={}]')
+INVALID_HEADER_KEY_CHARS = re.compile(r"[^!#$%&'*+\-.^_`|~0-9A-Za-z]")
+INVALID_HEADER_VALUE_CHAR = re.compile(r"[\x00\r\n]")  # NUL, CR and LF (RFC 9110 §5.5)
 
 VALID_CONTENT_LENGTH = re.compile(r"[0-9]+")
 VALID_CHUNK_SIZE = re.compile(rb"^[0-9A-Fa-f]+$")
@@ -83,11 +85,16 @@ def parse_headers(request_headers: str) -> Tuple[
     for header in request_headers:
         try:
             key, value = header.split(":", maxsplit=1)
+            if not key:
+                raise InvalidHTTPHeaders()
 
-            invalid_char_match = INVALID_HEADER_KEY_CHARS.search(key)
-            if invalid_char_match:
-                invalid_char = invalid_char_match.group()
-                raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_char)
+            invalid_key_char = INVALID_HEADER_KEY_CHARS.search(key)
+            if invalid_key_char:
+                raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_key_char.group())
+
+            invalid_value_char = INVALID_HEADER_VALUE_CHAR.search(value)
+            if invalid_value_char:
+                raise InvalidHTTPHeaderValue(key=key, value=value, invalid_char=invalid_value_char.group())
 
             key = key.lower()
             if key in COMMA_SEPARATED_VALUE_HEADERS:

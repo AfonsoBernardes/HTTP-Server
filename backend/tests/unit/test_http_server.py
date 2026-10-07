@@ -150,6 +150,7 @@ class TestServerHeaderHandling:
     @pytest.mark.parametrize(
         "invalid_headers",
         [
+            b"GET / HTTP/1.1\r\n \r\n\r\n"
             b"GET / HTTP/1.1\r\nInvalid-Headers Test\r\n\r\n",
             b"GET / HTTP/1.1\r\nInvalidHeaders - Test\r\n\r\n",
         ],
