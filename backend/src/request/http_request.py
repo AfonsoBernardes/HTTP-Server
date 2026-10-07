@@ -206,7 +206,7 @@ class HTTPRequest:
         url:str,
         protocol: HTTPProtocol,
         headers: Dict[str, List[str]]
-    ):
+    ) -> None:
         self.method = method
         self.url = url
         self.protocol = protocol
