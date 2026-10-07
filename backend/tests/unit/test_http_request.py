@@ -130,6 +130,8 @@ class TestRequestHeadersParsing:
             ("Header-Key: Header Value\r\nContent-Type: text/html", {"header-key": ["Header Value"], "content-type": ["text/html"]}),
             ("Header-Key: Header Value 1\r\nheader-key:Header Value 2\r\nContent-Type: text/html", {"header-key": ["Header Value 1" , "Header Value 2"], "content-type": ["text/html"]}),
             ("Custom_Header.Key~1: Header Value", {"custom_header.key~1": ["Header Value"]}),
+            ("Header-Key: a\tb", {"header-key": ["a\tb"]}),  # HTAB is allowed inside a value
+            ("Header-Key: Café", {"header-key": ["Café"]}),  # non-ASCII is allowed in values (the section was already decoded as UTF-8)
         ],
     )
     @pytest.mark.asyncio

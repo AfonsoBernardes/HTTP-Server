@@ -25,7 +25,7 @@ from request.exceptions import (
     InvalidRequestLine,
     ChunkLineTooLarge,
     TrailerSectionTooLarge,
-    TooManyChunks,
+    TooManyChunks, InvalidHTTPHeaderKey, InvalidHTTPHeaderValue,
 )
 from request.schema import HTTPRequestMethod
 from router.exceptions import DuplicateRouterPrefix, DuplicateRouter
@@ -124,6 +124,76 @@ class TestServerHeaderHandling:
         assert_in(InvalidRequestLine(request_line_str).base_message, caplog.text)
 
     @pytest.mark.parametrize(
+        "invalid_header_key, invalid_char",
+        [
+            (b"Header Key", " "),
+            (b"Header\nKey", "\\x0a"),
+            (b"Header\rKey", "\\x0d"),
+            (b"Header\tKey", "\\x09"),
+            (b"HeaderKey[", "["),
+            (b"HeaderKey]", "]"),
+            (b"HeaderKey\\", "\\"),
+            (b"HeaderKey/", "/"),
+            (b"HeaderKey<", "<"),
+            (b"HeaderKey>", ">"),
+            (b"HeaderKey@", "@"),
+            (b"HeaderKey,", ","),
+            (b"HeaderKey;", ";"),
+            (b"HeaderKey{", "{"),
+            (b"HeaderKey}", "}"),
+            (b"HeaderKey\x7f", "\\x7f"),
+            (b"HeaderKey(", "("),
+            (b"HeaderKey?", "?"),
+            (b"HeaderKey=", "="),
+            (b"Header\x00Key", "\\x00"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_headers_with_invalid_key_characters(self, caplog, invalid_header_key: bytes, invalid_char):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"GET / HTTP/1.1\r\n",
+            invalid_header_key,
+            b": Header Value\r\n\r\n"
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidHTTPHeaderKey.status_code)
+        assert_in(InvalidHTTPHeaderKey(key=invalid_header_key.decode(encoding="UTF-8", errors="strict"), invalid_char=invalid_char).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
+        "header_line, key, invalid_header_value, invalid_char",
+        [
+            (b"X-Test: \x00value","X-Test", " \x00value", "\\x00"),  # at the start
+            (b"X-Test: value\x00", "X-Test", " value\x00", "\\x00"),  # at the end
+            (b"X-Test: value\r", "X-Test", " value\r","\\x0d"),  # trailing bare CR
+            (b"X-Test: value\n", "X-Test", " value\n","\\x0a"),  # trailing bare LF
+            (b"X-Test:\r", "X-Test", "\r", "\\x0d"),  # nothing but a bare CR
+            (b"X-Test: a\rb\nc\x00d", "X-Test", " a\rb\nc\x00d","\\x0d"),  # several bad characters: the first one is reported
+            (b"Host: localhost\r\nX-Test: a\nb", "X-Test", " a\nb","\\x0a"),  # not only the first header is checked
+            (b"Accept: text/html,\napplication/json", "Accept", " text/html,\napplication/json", "\\x0a"),  # checked before a list header is split
+            (b"Content-Length: 5\n", "Content-Length", " 5\n", "\\x0a"),  # single-value headers too
+            (b"x-test: a\nb", "x-test", " a\nb", "\\x0a"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_should_fail_to_parse_request_headers_with_invalid_value_characters(self, caplog, header_line: bytes, key: str, invalid_header_value: str, invalid_char):
+        http_server = HTTPServer()
+        fake_connection = FakeSocket([
+            b"GET / HTTP/1.1\r\n",
+            header_line,
+            b"\r\n\r\n"
+        ])
+
+        with caplog.at_level(logging.ERROR):
+            response = http_server.handle_request(fake_connection)
+
+        assert_equal(response.status_code, InvalidHTTPHeaderValue.status_code)
+        assert_in(InvalidHTTPHeaderValue(key=key, value=invalid_header_value, invalid_char=invalid_char).base_message, caplog.text)
+
+    @pytest.mark.parametrize(
         "invalid_header_encoding",
         [
             b"GET / HTTP/1.1\r\nSomething: \xff\r\n\r\n",
@@ -151,6 +221,7 @@ class TestServerHeaderHandling:
         "invalid_headers",
         [
             b"GET / HTTP/1.1\r\n \r\n\r\n"
+            b"GET / HTTP/1.1\r\n: Header Value\r\n\r\n"
             b"GET / HTTP/1.1\r\nInvalid-Headers Test\r\n\r\n",
             b"GET / HTTP/1.1\r\nInvalidHeaders - Test\r\n\r\n",
         ],
