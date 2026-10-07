@@ -69,7 +69,9 @@ class HTTPServer(TCPServer):
                 print(raw_data)
                 # soft limit which prevents the loop from receiving data forever
                 if len(raw_data) > limits.max_header_section_size:
-                    raise HeaderSectionTooLarge(header_size=len(raw_data), max_header_size=limits.max_header_section_size)
+                    raise HeaderSectionTooLarge(
+                        header_size=len(raw_data), max_header_size=limits.max_header_section_size
+                    )
 
                 # receive data from the socket. The return value is a bytes object representing the data received.
                 # maximum amount of data to be received at once is specified by bufsize.
