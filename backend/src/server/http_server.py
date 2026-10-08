@@ -66,7 +66,6 @@ class HTTPServer(TCPServer):
             # data might arrive in chunks loop makes sure all headers are present in the request
             raw_data = b""
             while b"\r\n\r\n" not in raw_data:
-                print(raw_data)
                 # soft limit which prevents the loop from receiving data forever
                 if len(raw_data) > limits.max_header_section_size:
                     raise HeaderSectionTooLarge(
