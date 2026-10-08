@@ -79,6 +79,8 @@ With the TCP layer handling connections, we now need to turn raw bytes into a st
 
 ### HTTP Request
 
+An HTTP/1.1 request is a message with a fixed structure: a request line (`<METHOD>` `<TARGET>` `<PROTOCOL>`), a header section followed by an empty line, and an optional body. Parsing a request requires us to first parse the headers, and only then parse the request's body, since the headers provide necessary information about how to parse the body.
+
 
 ### HTTP Router
 
