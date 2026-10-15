@@ -112,9 +112,21 @@ def parse_headers(request_headers: str) -> Tuple[
   request_line = raw_request_line.split(" ", maxsplit=2)
   if len(request_line) != 3:
     raise InvalidRequestLine(raw_request_line)
+
+  try:
+    method = HTTPRequestMethod(request_line[0])
+  except ValueError:
+    raise InvalidHTTPMethod(request_line[0])
+  
+  url = request_line[1]
+  
+  try:
+    protocol = HTTPProtocol(request_line[2])
+  except ValueError:
+    raise InvalidHTTPProtocol(request_line[2])
 ```
 
-First of all, we separate every new line into a list `request_headers`, whose first element should be the request line, hence, we isolate the first element and separate it into exactly three parts: method, target and protocol. In the wake of being strict, any other request line's shape will raise an `InvalidRequestLine` exception, associated with a `400 Bad Request` status code, guarding against any possible smuggling vector. Furthermore, 
+First of all, we separate every new line into a list `request_headers`, whose first element should be the request line, hence, we isolate the first element and separate it into exactly three parts: method, target and protocol. In the wake of being strict, any other request line's shape will raise an `InvalidRequestLine` exception, associated with a `400 Bad Request` status code, guarding against any possible smuggling vector. Furthermore, we also check the method and protocol against `enums`, raising exceptions with `400 Bad Request` status code, so that invalid values never reach the handler.
 
 ### HTTP Router
 
