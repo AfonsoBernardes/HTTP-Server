@@ -250,19 +250,22 @@ class TestRequestHeadersParsing:
             parse_headers(data)
 
     @pytest.mark.parametrize(
-        "request_headers, header_key, num_values",
+        "request_headers, header_key",
         [
-            ("Content-Type: Test Server\r\nContent-Type: text/html", "content-type", 2),
-            ("Content-Length: 0\r\ncontent-length: 0", "content-length", 2),
-            ("Host: Host 1\r\nhost: Host 2\r\nHOST: Host3", "host", 3),
-            ("AUTHORIZATION: BearerXYZ\r\nAuthorization: BearerZYX", "authorization", 2),
+            ("Content-Type: Test Server\r\nContent-Type: text/html", "content-type"),
+            ("Content-Length: 0\r\ncontent-length: 0", "content-length"),
+            ("Host: Host 1\r\nhost: Host 2\r\nHOST: Host3", "host"),
+            ("AUTHORIZATION: BearerXYZ\r\nAuthorization: BearerZYX", "authorization"),
         ],
     )
     @pytest.mark.asyncio
-    async def test_should_fail_to_parse_disallowed_duplicate_request_headers(self, request_headers: str, header_key: str, num_values: int):
+    async def test_should_fail_to_parse_disallowed_duplicate_request_headers(self, request_headers: str, header_key: str):
         data = f'GET / HTTP/1.1\r\n{request_headers}'
 
-        with assert_raises(DuplicateHTTPHeader):
+        with pytest.raises(
+                DuplicateHTTPHeader,
+                match=re.escape(f"duplicate HTTP header: only one value supported for {header_key!r}")
+        ):
             parse_headers(data)
 
     @pytest.mark.parametrize(

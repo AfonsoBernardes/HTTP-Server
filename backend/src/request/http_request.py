@@ -118,13 +118,11 @@ def parse_headers(request_headers: str) -> Tuple[
                 if key not in headers:
                     headers[key] = [value]
                 else:
+                    if key in SINGLE_VALUE_HEADERS:
+                        raise DuplicateHTTPHeader(header_key=key)
                     headers[key].append(value)
         except ValueError:
             raise InvalidHTTPHeaders()
-
-    for key, value in headers.items():
-        if key in SINGLE_VALUE_HEADERS and len(value) > 1:
-            raise DuplicateHTTPHeader(header_key=key, num_values=len(value))
 
     return method, url, protocol, headers
 
