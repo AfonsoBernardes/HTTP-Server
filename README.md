@@ -35,12 +35,12 @@ The first building block of this project is a minimal, reusable, protocol-agnost
 
 ```python
 class TCPServer(ABC):
-	def __init__(self):
-		self.server_socket = socket(family=AF_INET, type=SOCK_STREAM)
-		self.server_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-
-		self.host = os.getenv("HOST", "0.0.0.0")
-		self.port = int(os.getenv("BACKEND_PORT", "8000"))
+  def __init__(self):
+    self.server_socket = socket(family=AF_INET, type=SOCK_STREAM)
+    self.server_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+    
+    self.host = os.getenv("HOST", "0.0.0.0")
+    self.port = int(os.getenv("BACKEND_PORT", "8000"))
 ```
 
 First, we set up a TCP socket (`type=SOCK_STREAM`) using IPv4 Internet addressing (`family=AF_INET`). The socket is also configured (`setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)`) so that it can be rebound to the same `port` and IP address (`host`) even if this combination was previously left in a `TIME_WAIT` status, i.e., the interval a closed connection lingers so that late packets aren't mistaken for a new connection; without this configuration step, restarting the server often fails with an "Address already in use" error. The server's `host` and `port` are read from environment variables (`HOST`, `BACKEND_PORT`), defaulting to `0.0.0.0:8000`, so the server can be configured per environment without code changes.
@@ -49,19 +49,19 @@ When the TCP server is running, it binds the socket to a specific address and po
  
 ```python
 def run_server(self) -> None:
-	self.server_socket.bind((self.host, self.port))
-	self.server_socket.listen(0)
-
-	try:
-		while True:
-			client_connection, client_address = self.server_socket.accept()
-
-			try:
-				self.handle_request(client_connection)
-			finally:
-				client_connection.close()
-	finally:
-            self.server_socket.close()
+  self.server_socket.bind((self.host, self.port))
+  self.server_socket.listen(0)
+  
+  try:
+    while True:
+      client_connection, client_address = self.server_socket.accept()
+  
+      try:
+        self.handle_request(client_connection)
+      finally:
+        client_connection.close()
+  finally:
+    self.server_socket.close()
 ```
 
 `accept()` blocks the server while it waits for a connection, and when a client connects, it returns a **new** socket object (`client_connection`) usable to send and receive data on the connection, and the address bound to the socket (`client_address`) on the other end of the connection. `handle_request` (an abstract method implemented by the subclass) reads from and writes to that connection; once it returns or raise an exception, the connection is closed and the server loops back to wait for the next client.
@@ -83,6 +83,38 @@ An HTTP/1.1 request is a message with a fixed structure: a request line (`<METHO
 
 Everything in a request comes from the client, so I try to keep the logic as strict as possible, rejecting malformed or malicious requests before they can reach the next stage. Let's see how a request is moves through both stages, and the reasoning behind the decisions made along the way.
 
+Before anything can be parsed, the raw bytes have to be read from the socket; that's the server's job. Since TCP delivers a stream of bytes with no message boundaries, a single `recv()` can return any set of bytes; however, under HTTP rules, a request's headers and body are separated by two "CRLF", so the `HTTPServer` will read raw bytes until it finds `\r\n\r\n`, meaning the header section is complete. In order guard against a client never sending a blank line, which would make the server buffer forever, we raise a `413 Payload Too Large` if the header section grows larger than an imposed limit. 
+
+```python
+raw_data = b""
+while b"\r\n\r\n" not in raw_data:
+  if len(raw_data) > limits.max_header_section_size:
+    raise HeaderSectionTooLarge(header_size=len(raw_data), max_header_size=limits.max_header_section_size)
+  
+  chunk_data = client_connection.recv(1024)
+  if not chunk_data:
+    break
+  raw_data += chunk_data
+```
+
+Once we receive the blank line and break the loop, we can separate the header section for the rest of raw bytes received, which already belong to the request's body; these bytes are appended to a buffer for later processing. The header section is decoded and sent to a function (`parse_headers`) to parse the request line and the request's headers.
+
+```python
+def parse_headers(request_headers: str) -> Tuple[
+  HTTPRequestMethod,
+  str,
+  HTTPProtocol,
+  Dict[str, List[str]],
+]:
+  request_headers = request_headers.split("\r\n")
+  
+  raw_request_line = request_headers.pop(0)
+  request_line = raw_request_line.split(" ", maxsplit=2)
+  if len(request_line) != 3:
+    raise InvalidRequestLine(raw_request_line)
+```
+
+First of all, we separate every new line into a list `request_headers`, whose first element should be the request line, hence, we isolate the first element and separate it into exactly three parts: method, target and protocol. In the wake of being strict, any other request line's shape will raise an `InvalidRequestLine` exception, associated with a `400 Bad Request` status code, guarding against any possible smuggling vector. Furthermore, 
 
 ### HTTP Router
 
