@@ -65,8 +65,8 @@ class InvalidHTTPHeaderValue(HTTPServerException):
 class DuplicateHTTPHeader(HTTPServerException):
     status_code = HTTPResponseStatusCode.HTTP_400
 
-    def __init__(self, header_key: str, num_values: int):
-        super().__init__(f"duplicate HTTP header: expected one value for {header_key!r}, got {num_values!r}")
+    def __init__(self, header_key: str):
+        super().__init__(f"duplicate HTTP header: only one value supported for {header_key!r}")
 
 
 class UnsupportedTransferEncoding(HTTPServerException):

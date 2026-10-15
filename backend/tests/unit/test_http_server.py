@@ -295,7 +295,7 @@ class TestServerHeaderHandling:
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, DuplicateHTTPHeader.status_code)
-        assert_in(DuplicateHTTPHeader(header_key=header_key, num_values=num_values).base_message, caplog.text)
+        assert_in(DuplicateHTTPHeader(header_key=header_key).base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "invalid_headers, invalid_method",
@@ -419,7 +419,7 @@ class TestServerHeaderHandling:
             response = http_server.handle_request(fake_connection)
 
         assert_equal(response.status_code, DuplicateHTTPHeader.status_code)
-        assert_in(DuplicateHTTPHeader(header_key="content-length", num_values=2).base_message, caplog.text)
+        assert_in(DuplicateHTTPHeader(header_key="content-length").base_message, caplog.text)
 
     @pytest.mark.parametrize(
         "headers, large_content_length",
