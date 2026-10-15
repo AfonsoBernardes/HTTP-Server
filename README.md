@@ -83,7 +83,7 @@ An HTTP/1.1 request is a message with a fixed structure: a request line (`<METHO
 
 Everything in a request comes from the client, so I try to keep the logic as strict as possible, rejecting malformed or malicious requests before they can reach the next stage. Let's see how a request is moves through both stages, and the reasoning behind the decisions made along the way.
 
-Before anything can be parsed, the raw bytes have to be read from the socket; that's the server's job. Since TCP delivers a stream of bytes with no message boundaries, a single `recv()` can return any set of bytes; however, under HTTP rules, a request's headers and body are separated by two "CRLF", so the `HTTPServer` will read raw bytes until it finds `\r\n\r\n`, meaning the header section is complete. In order guard against a client never sending a blank line, which would make the server buffer forever, we raise a `413 Payload Too Large` if the header section grows larger than an imposed limit. 
+Before anything can be parsed, the raw bytes have to be read from the socket; that's the server's job. Since TCP delivers a stream of bytes with no message boundaries, a single `recv()` can return any set of bytes; however, under HTTP rules, a request's headers and body are separated by two "CRLF", so the `HTTPServer` will read raw bytes until it finds `\r\n\r\n`, meaning the header section is complete. In order guard against a client never sending a blank line, which would make the server buffer forever, we raise a `413 Payload Too Large` if the header section grows larger than an imposed limit [RFC 9110 §5.4; RFC 6585 §5]. 
 
 ```python
 raw_data = b""
@@ -97,7 +97,7 @@ while b"\r\n\r\n" not in raw_data:
   raw_data += chunk_data
 ```
 
-Once we receive the blank line and break the loop, we can separate the header section for the rest of raw bytes received, which already belong to the request's body; these bytes are appended to a buffer for later processing. The header section is decoded and sent to a function (`parse_headers`) to parse the request line and the request's headers.
+Once we receive the blank line and break the loop, we can separate the header section for the rest of raw bytes received, which already belong to the request's body or to the next request entirely; these bytes are appended to a buffer for later processing. The header section is decoded and sent to a function (`parse_headers`) to parse the request line and the request's headers.
 
 ```python
 def parse_headers(request_headers: str) -> Tuple[
@@ -126,7 +126,42 @@ def parse_headers(request_headers: str) -> Tuple[
     raise InvalidHTTPProtocol(request_line[2])
 ```
 
-First of all, we separate every new line into a list `request_headers`, whose first element should be the request line, hence, we isolate the first element and separate it into exactly three parts: method, target and protocol. In the wake of being strict, any other request line's shape will raise an `InvalidRequestLine` exception, associated with a `400 Bad Request` status code, guarding against any possible smuggling vector. Furthermore, we also check the method and protocol against `enums`, raising exceptions with `400 Bad Request` status code, so that invalid values never reach the handler.
+First of all, we separate every new line into a list `request_headers`, whose first element should be the request line, hence, we isolate the first element and separate it into exactly three parts: method, target and protocol. In the wake of being strict, any other request line's shape will raise an `InvalidRequestLine` exception, associated with a `400 Bad Request` status code, guarding against any possible smuggling vector. Furthermore, we also check the method and protocol against `enums`, raising exceptions with `400 Bad Request` status code, so that the request line is fully validated before parsing the headers.
+
+Secondly, each header is split at the first colon which separates the key-value pair, meaning that a header key cannot have a colon while being accepted as part of the value. Header keys can only contain ASCII letters, digits and a few symbols; a space (even one before the colon), a control character, a non-ASCII letter or an empty key gets the request rejected [RFC 9110 §5.6.2; RFC 9112 §5.1]. Header values can't contain "NUL", "CR" or "LF" [RFC 9110 §5.5; RFC 9112 §2.2].
+
+```python
+try:
+  key, value = header.split(":", maxsplit=1)
+  if not key:
+    raise InvalidHTTPHeaders()
+  
+  invalid_key_char = INVALID_HEADER_KEY_CHARS.search(key)
+  if invalid_key_char:
+    raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_key_char.group())
+  
+  invalid_value_char = INVALID_HEADER_VALUE_CHAR.search(value)
+  if invalid_value_char:
+    raise InvalidHTTPHeaderValue(key=key, value=value, invalid_char=invalid_value_char.group())
+  
+  key = key.lower()
+  if key in COMMA_SEPARATED_VALUE_HEADERS:
+    value_list = [value.strip() for value in value.split(",")]
+  else:
+    value_list = [value.strip()]
+  
+  for value in value_list:
+    if key not in headers:
+      headers[key] = [value]
+    else:
+      headers[key].append(value)
+except ValueError:
+  raise InvalidHTTPHeaders()
+```
+
+Some headers are defined as comma-separated lists (Accept-Language, Transfer-Encoding, etc.) meaning they may have more than one value separated by a comma; if that's the case, we split the header value by each comma, if not, the comma is just part of the value [RFC 9110 §5.3, §5.6.1].
+
+Lastly, each key points at a list  of individual values, either comma separated values from the same header line, or headers which appear more than once on different lines and are allowed to have multiple values. However, some headers must be unique (Content-Length, Host, etc.) making it so that a repeat raises `DuplicateHTTPHeader` with a `400 Bad Request` status code since that picking a value is the type of vulnerability smuggling attacks exploit [RFC 9110 §5.5].
 
 ### HTTP Router
 
