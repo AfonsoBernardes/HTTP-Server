@@ -81,6 +81,18 @@ def parse_headers(request_headers: str) -> Tuple[
     if len(request_line) != 3:
         raise InvalidRequestLine(raw_request_line)
 
+    try:
+        method = HTTPRequestMethod(request_line[0])
+    except ValueError:
+        raise InvalidHTTPMethod(request_line[0])
+
+    url = request_line[1]
+
+    try:
+        protocol = HTTPProtocol(request_line[2])
+    except ValueError:
+        raise InvalidHTTPProtocol(request_line[2])
+
     headers = {}
     for header in request_headers:
         try:
@@ -113,18 +125,6 @@ def parse_headers(request_headers: str) -> Tuple[
     for key, value in headers.items():
         if key in SINGLE_VALUE_HEADERS and len(value) > 1:
             raise DuplicateHTTPHeader(header_key=key, num_values=len(value))
-
-    try:
-        method = HTTPRequestMethod(request_line[0])
-    except ValueError:
-        raise InvalidHTTPMethod(request_line[0])
-
-    url = request_line[1]
-
-    try:
-        protocol = HTTPProtocol(request_line[2])
-    except ValueError:
-        raise InvalidHTTPProtocol(request_line[2])
 
     return method, url, protocol, headers
 
