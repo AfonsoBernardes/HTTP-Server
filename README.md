@@ -154,6 +154,8 @@ try:
     if key not in headers:
       headers[key] = [value]
     else:
+      if key in SINGLE_VALUE_HEADERS:
+        raise DuplicateHTTPHeader(header_key=key)
       headers[key].append(value)
 except ValueError:
   raise InvalidHTTPHeaders()
