@@ -196,6 +196,8 @@ class HTTPRequest:
       raise UnspecifiedBodyLength(method=self.method)
 ```
 
+The "Content-Length" branch requires the value to contain ASCII digits only, stricter than Python's `int()` which accepts "+5", "1_0" or "-0"
+
 </details>
 
 <details>
