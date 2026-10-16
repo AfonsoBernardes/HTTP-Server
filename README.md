@@ -81,9 +81,9 @@ With the TCP layer handling connections, we now need to turn raw bytes into a st
 
 An HTTP/1.1 request is a message with a fixed structure: a request line (`<METHOD>` `<TARGET>` `<PROTOCOL>`), a header section followed by an empty line, and an optional body. Parsing a request requires us to first parse the headers, and only then parse the request's body, since the headers provide necessary information about how to parse the body. These stages map to two main functions: `parse_headers` turns the raw header section into a structured request, and `parse_body` uses those headers to read the body.
 
-Everything in a request comes from the client, so I try to keep the logic as strict as possible, rejecting malformed or malicious requests before they can reach the next stage. Let's see how a request is moves through both stages, and the reasoning behind the decisions made along the way.
+Everything in a request comes from the client, so I try to keep the logic as strict as possible, rejecting malformed or malicious requests before they can reach the next stage. Let's see how a request moves through both stages, and the reasoning behind the decisions made along the way.
 
-Before anything can be parsed, the raw bytes have to be read from the socket; that's the server's job. Since TCP delivers a stream of bytes with no message boundaries, a single `recv()` can return any set of bytes; however, under HTTP rules, a request's headers and body are separated by two "CRLF", so the `HTTPServer` will read raw bytes until it finds `\r\n\r\n`, meaning the header section is complete. In order guard against a client never sending a blank line, which would make the server buffer forever, we raise a `413 Payload Too Large` if the header section grows larger than an imposed limit [RFC 9110 §5.4; RFC 6585 §5]. 
+Before anything can be parsed, the raw bytes have to be read from the socket; that's the server's job. Since TCP delivers a stream of bytes with no message boundaries, a single `recv()` can return any set of bytes; however, under HTTP rules, a request's headers and body are separated by two "CRLF", so the `HTTPServer` will read raw bytes until it finds `\r\n\r\n`, meaning the header section is complete. To guard against a client never sending a blank line, which would make the server buffer forever, the server rejects the request with `HeaderSectionTooLarge` (`431 Request Header Fields Too Large`) once the header section grows larger than an imposed limit (16KB) [RFC 9110 §5.4; RFC 6585 §5]. 
 
 ```python
 raw_data = b""
@@ -97,7 +97,7 @@ while b"\r\n\r\n" not in raw_data:
   raw_data += chunk_data
 ```
 
-Once we receive the blank line and break the loop, we can separate the header section for the rest of raw bytes received, which already belong to the request's body or to the next request entirely; these bytes are appended to a buffer for later processing. The header section is decoded and sent to a function (`parse_headers`) to parse the request line and the request's headers.
+Once we receive the blank line and break the loop, we can separate the header section from the rest of the raw bytes received, which already belong to the request's body or, in principle, to the next request entirely; these bytes are appended to a buffer for later processing. The header section is decoded and sent to a function (`parse_headers`) to parse the request line and the request's headers.
 
 ```python
 def parse_headers(request_headers: str) -> Tuple[
@@ -126,44 +126,77 @@ def parse_headers(request_headers: str) -> Tuple[
     raise InvalidHTTPProtocol(request_line[2])
 ```
 
-First of all, we separate every new line into a list `request_headers`, whose first element should be the request line, hence, we isolate the first element and separate it into exactly three parts: method, target and protocol. In the wake of being strict, any other request line's shape will raise an `InvalidRequestLine` exception, associated with a `400 Bad Request` status code, guarding against any possible smuggling vector. Furthermore, we also check the method and protocol against `enums`, raising exceptions with `400 Bad Request` status code, so that the request line is fully validated before parsing the headers.
+First of all, we separate every new line into a list `request_headers`, whose first element should be the request line, hence, we isolate the first element and separate it into exactly three parts: method, target and protocol. In the wake of being strict, any other request line's shape will raise an `InvalidRequestLine` exception, associated with a `400 Bad Request` status code, since relaxed request-line parsing is a possible smuggling vector [RFC 9112 §3]. Furthermore, we also check the method and protocol against `enums`, raising exceptions with `400 Bad Request` status code, so that the request line is fully validated before parsing the headers.
 
-Secondly, each header is split at the first colon which separates the key-value pair, meaning that a header key cannot have a colon while being accepted as part of the value. Header keys can only contain ASCII letters, digits and a few symbols; a space (even one before the colon), a control character, a non-ASCII letter or an empty key gets the request rejected [RFC 9110 §5.6.2; RFC 9112 §5.1]. Header values can't contain "NUL", "CR" or "LF" [RFC 9110 §5.5; RFC 9112 §2.2].
+Secondly, each header line is split at its first colon meaning that a header key cannot have a colon, but a value can (e.g. "Host: localhost:8000"). Header keys can only contain ASCII letters, digits and a few symbols; a space (even one before the colon), a control character, a non-ASCII letter or an empty key gets the request rejected [RFC 9110 §5.6.2; RFC 9112 §5.1]. Header values can't contain "NUL", "CR" or "LF" because a bare line feed could make another parser see an extra header that this one never saw [RFC 9110 §5.5; RFC 9112 §2.2]. Some headers are defined as comma-separated lists (Accept-Language, Transfer-Encoding, etc.) meaning they may have more than one value separated by a comma; if that's the case, we split the header value by each comma, if not, the comma is just part of the value [RFC 9110 §5.3, §5.6.1].
 
 ```python
-try:
-  key, value = header.split(":", maxsplit=1)
-  if not key:
-    raise InvalidHTTPHeaders()
-  
-  invalid_key_char = INVALID_HEADER_KEY_CHARS.search(key)
-  if invalid_key_char:
-    raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_key_char.group())
-  
-  invalid_value_char = INVALID_HEADER_VALUE_CHAR.search(value)
-  if invalid_value_char:
-    raise InvalidHTTPHeaderValue(key=key, value=value, invalid_char=invalid_value_char.group())
-  
-  key = key.lower()
-  if key in COMMA_SEPARATED_VALUE_HEADERS:
-    value_list = [value.strip() for value in value.split(",")]
-  else:
-    value_list = [value.strip()]
-  
-  for value in value_list:
-    if key not in headers:
-      headers[key] = [value]
+headers = {}
+for header in request_headers:
+  try:
+    key, value = header.split(":", maxsplit=1)
+    if not key:
+      raise InvalidHTTPHeaders()
+    
+    invalid_key_char = INVALID_HEADER_KEY_CHARS.search(key)
+    if invalid_key_char:
+      raise InvalidHTTPHeaderKey(key=key, invalid_char=invalid_key_char.group())
+    
+    invalid_value_char = INVALID_HEADER_VALUE_CHAR.search(value)
+    if invalid_value_char:
+      raise InvalidHTTPHeaderValue(key=key, value=value, invalid_char=invalid_value_char.group())
+    
+    key = key.lower()
+    if key in COMMA_SEPARATED_VALUE_HEADERS:
+      value_list = [value.strip() for value in value.split(",")]
     else:
-      if key in SINGLE_VALUE_HEADERS:
-        raise DuplicateHTTPHeader(header_key=key)
-      headers[key].append(value)
-except ValueError:
-  raise InvalidHTTPHeaders()
+      value_list = [value.strip()]
+    
+    for value in value_list:
+      if key not in headers:
+        headers[key] = [value]
+      else:
+        if key in SINGLE_VALUE_HEADERS:
+          raise DuplicateHTTPHeader(header_key=key)
+        headers[key].append(value)
+  except ValueError:
+    raise InvalidHTTPHeaders()
+
+return method, url, protocol, headers
 ```
 
-Some headers are defined as comma-separated lists (Accept-Language, Transfer-Encoding, etc.) meaning they may have more than one value separated by a comma; if that's the case, we split the header value by each comma, if not, the comma is just part of the value [RFC 9110 §5.3, §5.6.1].
+Lastly, each key points at a list of individual values, either comma separated values from the same header line, or headers which appear more than once on different lines and are allowed to have multiple values. However, some headers must be unique (Content-Length, Host, etc.) making it so that a repeat raises `DuplicateHTTPHeader` with a `400 Bad Request` status code since picking a value is what smuggling attacks exploit [RFC 9110 §5.5].
 
-Lastly, each key points at a list  of individual values, either comma separated values from the same header line, or headers which appear more than once on different lines and are allowed to have multiple values. However, some headers must be unique (Content-Length, Host, etc.) making it so that a repeat raises `DuplicateHTTPHeader` with a `400 Bad Request` status code since that picking a value is the type of vulnerability smuggling attacks exploit [RFC 9110 §5.5].
+Once the headers are parsed, they should tell us where the body ends. There are two ways to determine it: either with "Content-Length" header telling us the exact number of bytes, or by "Transfer-Encoding: chunked" sending the body in pieces, each announcing their own size, useful when the sender doesn't know the complete body size up front. Notice that a request carrying both headers is rejected with `AmbiguousBodyLength` (`400 Bad Request`), because two framing methods can disagree about where the body ends, opening a window for request smuggling [RFC 9112 §6.1, §6.3, §11.2]. Notice that `POST`, `PUT` and `PATCH` methods are expected to carry content, therefore, when neither header is present, we raise an `UnspecifiedBodyLength` (`411 Length Required`) instead of assuming the body is empty, i.e., the client has to state a length, even if it is zero [RFC 9110 §8.6].
+
+```python
+class HTTPRequest:
+  def __init__(
+    self, method: HTTPRequestMethod, url: str, protocol: HTTPProtocol, headers: Dict[str, List[str]]
+  ) -> None:
+    self.method = method
+    self.url = url
+    self.protocol = protocol
+    self.headers = headers
+    self.body: Optional[str] = None
+  
+  def parse_body(
+    self, client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS
+  ) -> Optional[str]:
+    transfer_encoding = self.headers.get("transfer-encoding", None)
+    content_length = self.headers.get("content-length", None)
+    
+    if transfer_encoding is not None and content_length is not None:
+      raise AmbiguousBodyLength()
+    
+    raw_body = b""
+    if transfer_encoding is not None:
+      ...
+    elif content_length is not None:
+      ...
+    elif self.method in (HTTPRequestMethod.POST, HTTPRequestMethod.PUT, HTTPRequestMethod.PATCH):
+      raise UnspecifiedBodyLength(method=self.method)
+```
 
 ### HTTP Router
 
