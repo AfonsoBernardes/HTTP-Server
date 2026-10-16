@@ -151,7 +151,7 @@ class ChunkLineTooLarge(HTTPServerException):
 
 
 class HeaderSectionTooLarge(HTTPServerException):
-    status_code = HTTPResponseStatusCode.HTTP_413
+    status_code = HTTPResponseStatusCode.HTTP_431
 
     def __init__(self, header_size: int, max_header_size: int):
         super().__init__(
