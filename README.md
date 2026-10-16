@@ -14,22 +14,16 @@ Software engineers increasingly rely on tools to move faster, yet speed comes at
 > See [THEORY.md](./THEORY.md) for the fundamentals of HTTP/TCP. This README focuses on what I built, how I built it and explains the decisions along the way.
 
 
-<details open>
-	<summary>
-		<h2>Features</h2>
-	</summary>
-</details>
+## Features
 
-
-<details open>
-	<summary>
-		<h2>How I Built It</h2>
-	</summary>
+## How I Built It
 
 This section and its subsections walk us through the code line by line. Here I present what was built and the decisions/trade-offs I made along the way.
 
-
-### TCP Server
+<details>
+	<summary>
+		<h3>TCP Server</h2>
+	</summary>
 
 The first building block of this project is a minimal, reusable, protocol-agnostic TCP server which protocol-specific servers, like HTTP, can extend. `TCPServer` is an `ABC` (abstract base class) which implements the transport layer, i.e., it takes care of opening a socket, binding it to an address, listening for connections, and accepting clients. Any subclass only has to implement what to do with a connection once it's open. This keeps the socket setup and configuration in one place and out of the HTTP-specific code.
 
@@ -76,8 +70,12 @@ The server is simple and has obvious limitations, but these are conscious decisi
 
 With the TCP layer handling connections, we now need to turn raw bytes into a structured request, route the request to the right handler, and build the response to send back. We'll cover each component individually before bringing them together into the HTTP server itself.
 
+</details>
 
-### HTTP Request
+<details>
+	<summary>
+		<h3>HTTP Request</h2>
+	</summary>
 
 An HTTP/1.1 request is a message with a fixed structure: a request line (`<METHOD>` `<TARGET>` `<PROTOCOL>`), a header section followed by an empty line, and an optional body. Parsing a request requires us to first parse the headers, and only then parse the request's body, since the headers provide necessary information about how to parse the body. These stages map to two main functions: `parse_headers` turns the raw header section into a structured request, and `parse_body` uses those headers to read the body.
 
@@ -198,13 +196,24 @@ class HTTPRequest:
       raise UnspecifiedBodyLength(method=self.method)
 ```
 
-### HTTP Router
+</details>
 
+<details>
+	<summary>
+		<h3>HTTP Router</h2>
+	</summary>
+</details>
 
-### HTTP Response
+<details>
+	<summary>
+		<h3>HTTP Response</h2>
+	</summary>
+</details>
 
-
-### HTTP Server
+<details>
+	<summary>
+		<h3>HTTP Server</h2>
+	</summary>
 
 As we've seen before, `TCPServer` implements everything related to the transport layer, on top of which the protocol is built. `HTTPServer`, which inherits from `TCPServer`, implements protocol-related features like parsing a request, routing it, and building a response. This parent-child relationship keeps concerns separated, allowing for other classes to build on top of the transport layer without affecting the rest of the code.
 
@@ -260,7 +269,6 @@ To undertstand the userior to Python 3.6, dictionaries were unordered structures
 
         return None
 ```
-	
 </details>
 
 ---
