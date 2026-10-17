@@ -198,6 +198,33 @@ class HTTPRequest:
 
 The "Content-Length" branch requires the value to contain ASCII digits only, stricter than Python's `int()` which accepts "+5", "1_0" or "-0"
 
+```python
+content_length = content_length[0]
+if not VALID_CONTENT_LENGTH.fullmatch(content_length):
+  raise InvalidContentLength(content_length=content_length)
+
+try:
+  content_length = int(content_length)
+except ValueError:
+  raise InvalidContentLength(content_length=content_length)
+else:
+  if content_length > limits.max_body_size:
+    raise BodyTooLarge(content_length, limits.max_body_size)
+
+if content_length > 0:
+  while len(body_buffer) < content_length:
+    chunk_data = client_connection.recv(1024)
+    if not chunk_data:
+      break
+    body_buffer += chunk_data
+
+  if len(body_buffer) < content_length:
+    raise InvalidBodyLength(body_length=len(body_buffer), expected_length=content_length)
+  else:
+    raw_body = body_buffer[:content_length]
+    body_buffer = body_buffer[content_length:]
+```
+
 </details>
 
 <details>
