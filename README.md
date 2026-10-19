@@ -196,20 +196,22 @@ class HTTPRequest:
       raise UnspecifiedBodyLength(method=self.method)
 ```
 
-The "Content-Length" branch requires the value to contain ASCII digits only, stricter than Python's `int()` which accepts "+5", "1_0" or "-0"
+The "Content-Length" branch requires the value to contain ASCII digits only, rejecting negative values and stricter than Python's `int()` which accepts "+5", "1_0" or "-0". Once converted to a valid integer, we check if the declared length is over the server limit (10 MB default), raising a `BodyTooLarge` (`413 Payload Too Large`) if that's the case. If content length declares a non-empty body, the parser reads until the `body_buffer` is big enough or breaking the loop if no data is received. In the case the buffer is smaller than the declared body size, an `InvalidBodyLength` (`400 Bad Request`) discards the request.
 
 ```python
+VALID_CONTENT_LENGTH = re.compile(r"[0-9]+")
+
 content_length = content_length[0]
 if not VALID_CONTENT_LENGTH.fullmatch(content_length):
   raise InvalidContentLength(content_length=content_length)
 
 try:
-  content_length = int(content_length)
+	content_length = int(content_length)
 except ValueError:
-  raise InvalidContentLength(content_length=content_length)
-else:
-  if content_length > limits.max_body_size:
-    raise BodyTooLarge(content_length, limits.max_body_size)
+	raise InvalidContentLength(content_length=content_length)
+
+if content_length > limits.max_body_size:
+	raise BodyTooLarge(content_length, limits.max_body_size)
 
 if content_length > 0:
   while len(body_buffer) < content_length:
