@@ -244,9 +244,9 @@ class HTTPRequest:
                 content_length = int(content_length)
             except ValueError:
                 raise InvalidContentLength(content_length=content_length)
-            else:
-                if content_length > limits.max_body_size:
-                    raise BodyTooLarge(content_length, limits.max_body_size)
+
+            if content_length > limits.max_body_size:
+                raise BodyTooLarge(content_length, limits.max_body_size)
 
             if content_length > 0:
                 while len(body_buffer) < content_length:
