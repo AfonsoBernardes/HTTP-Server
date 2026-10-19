@@ -241,8 +241,8 @@ class HTTPRequest:
                 raise InvalidContentLength(content_length=content_length)
 
             try:
-                content_length = int(content_length)  # "Content-Length" should be unique
-            except ValueError:  # can't convert to integer, like empty string
+                content_length = int(content_length)
+            except ValueError:
                 raise InvalidContentLength(content_length=content_length)
             else:
                 if content_length > limits.max_body_size:
