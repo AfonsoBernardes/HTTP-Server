@@ -227,9 +227,9 @@ if content_length > 0:
     body_buffer = body_buffer[content_length:]
 ```
 
-The "Transfer-Encoding" path of the code is slightly longer, and it can be broken down into several smaller functions so it reads better, it's easily maintained and can be tested separately. 
+The "Transfer-Encoding" path of the logic is slightly longer; instead of declaring the total length up front, the sender splits the body into chunks, transferred as a sequence of length-delimited buffers. Each chunk starts with a string of hexadecimal digits which indicate the size of the chunk-data in octets, followed by CRLF and then the chunk itself, followed by another CRLF. The end of a body is marked by a zero-length chunk, followed by an optional trailer section and a final empty line [RFC 9112 §7.1]. Notice that, even though "transfer-encoding" header can have comma separated values, we only accept "chunked" as a single value; if there are more than one value declared, or if those values are unsupported or not valid, we raise `UnsupportedTransferEncoding` (`501 Not Implemented`) or `InvalidTransferEncoding` (`400 Bad Request`), respectively.
 
-```
+```python
 if len(transfer_encoding) != 1:
   raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
 
@@ -240,6 +240,47 @@ elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
   raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
 else:
   raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
+```
+
+Parsing a chunked body can be divided into several smaller functions so it reads better and it's more easily maintained and tested, avoiding that a single chunk of code takes on all the responsibility for a rather nuanced logic which inherently raises a lot of edge cases. Before getting into the details on parsing, let's break down the different helper function: `receive_chunked_data`, `read_exact` and `read_line`.
+
+`receive_chunked_data` fairly straightforward, until a zero-length chunk isn't sent, this function keeps receive bytes through the open connection; if no data is received, it means the client closed the connection, and waiting for bytes that will never arrive would hang the single-threaded server [RFC 9112 §8], so we raise an `IncompleteChunkedBody` (`Bad Request`).
+
+```python
+def receive_chunked_data(client_connection: socket) -> bytes:
+  chunk_data = client_connection.recv(1024)
+  if not chunk_data:
+    raise IncompleteChunkedBody(client_connection)
+
+  return chunk_data
+```
+
+Reading chunked data takes two kinds of reads: reading a line, like the chunk size or a trailer field, and reading an exact number of bytes, i.e., a chunk's data. `read_line` receives data until CRLF is present in the buffer or until the buffer grows past an imposed limit of 4 KB for each chunk line, in which case a `ChunkLineTooLarge` (`413 Payload Too Large`) is raised, preventing the buffer from growing forever. Once "\r\n" is found in the body buffer, we separate that chunk line from the rest of the buffer and check for the line size once again. Notice that the first size check compares with `max_line_size + 1` while the second compares to `max_line_size`, why? In the first case, since we're still receiving data, we could go over the limit once a "\r" character without a matching "\n" is received, which shouldn't count for the line size; the second check is in place in case the chunk line arrives complete but too long. Once we know the next chunk's size, read exact receives data until the buffer is greater than the declared size, reading the exact number of bytes as the chunk's body while the rest remains to be read as buffer.
+
+```python
+def read_line(client_connection: socket, body_buffer: bytes, max_line_size: int) -> Tuple[bytes, bytes]:
+  while b"\r\n" not in body_buffer:
+    if len(body_buffer) > max_line_size + 1:
+      raise ChunkLineTooLarge(chunk_line_size=len(body_buffer), max_chunk_line_size=max_line_size)
+
+    chunk_data = receive_chunked_data(client_connection)
+    body_buffer += chunk_data
+
+  chunk_line, body_buffer = body_buffer.split(b"\r\n", maxsplit=1)
+  if len(chunk_line) > max_line_size:
+    raise ChunkLineTooLarge(chunk_line_size=len(chunk_line), max_chunk_line_size=max_line_size)
+
+  return chunk_line, body_buffer
+
+def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -> Tuple[bytes, bytes]:
+  while len(body_buffer) < chunk_size:
+    chunk_data = receive_chunked_data(client_connection)
+    body_buffer += chunk_data
+
+  body_chunk = body_buffer[:chunk_size]
+  body_buffer = body_buffer[chunk_size:]
+
+  return body_chunk, body_buffer
 ```
 
 </details>
