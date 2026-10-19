@@ -227,6 +227,21 @@ if content_length > 0:
     body_buffer = body_buffer[content_length:]
 ```
 
+The "Transfer-Encoding" path of the code is slightly longer, and it can be broken down into several smaller functions so it reads better, it's easily maintained and can be tested separately. 
+
+```
+if len(transfer_encoding) != 1:
+  raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
+
+transfer_encoding = transfer_encoding[0]
+if transfer_encoding.lower() == "chunked":
+  raw_body = parse_chunked_body(client_connection, body_buffer, limits)
+elif transfer_encoding.lower() in ("compress", "deflate", "gzip"):
+  raise UnsupportedTransferEncoding(transfer_encoding=transfer_encoding)
+else:
+  raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
+```
+
 </details>
 
 <details>
