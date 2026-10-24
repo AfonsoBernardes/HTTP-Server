@@ -163,7 +163,7 @@ for header in request_headers:
 return method, url, protocol, headers
 ```
 
-Lastly, each key points at a list of individual values, either comma separated values from the same header line, or headers which appear more than once on different lines and are allowed to have multiple values. However, some headers must be unique (Content-Length, Host, etc.) making it so that a repeat raises `DuplicateHTTPHeader` (`400 Bad Request`) since picking a value is what smuggling attacks exploit [RFC 9110 §5.5].
+Lastly, each key points at a list of individual values, either comma separated values from the same header line, or headers which appear more than once on different lines and are allowed to have multiple values. However, some headers must be unique (Content-Length, Host, etc.) making it so that a repeat raises `DuplicateHTTPHeader` (`400 Bad Request`) since different parsers may pick different values, and that disagreement is what smuggling attacks exploit [RFC 9110 §5.5].
 
 Once the headers are parsed, they should tell us where the body ends. There are two ways to determine it: either with "Content-Length" header telling us the exact number of bytes, or by "Transfer-Encoding: chunked" sending the body in pieces, each announcing their own size, useful when the sender doesn't know the complete body size up front. Notice that a request carrying both headers is rejected with `AmbiguousBodyLength` (`400 Bad Request`), because two framing methods can disagree about where the body ends, opening a window for request smuggling [RFC 9112 §6.1, §6.3, §11.2]. Notice that `POST`, `PUT` and `PATCH` methods are expected to carry content, therefore, when neither header is present, we raise an `UnspecifiedBodyLength` (`411 Length Required`) instead of assuming the body is empty, i.e., the client has to state a length, even if it is zero [RFC 9110 §8.6].
 
@@ -196,7 +196,7 @@ class HTTPRequest:
       raise UnspecifiedBodyLength(method=self.method)
 ```
 
-The "Content-Length" branch requires the value to contain ASCII digits only, rejecting negative values and stricter than Python's `int()` which accepts "+5", "1_0" or "-0". Once converted to a valid integer, we check if the declared length is over the server limit (10 MB default), raising a `BodyTooLarge` (`413 Payload Too Large`) if that's the case. If content length declares a non-empty body, the parser reads until the `body_buffer` is big enough or breaking the loop if no data is received. In the case the buffer is smaller than the declared body size, an `InvalidBodyLength` (`400 Bad Request`) discards the request.
+The "Content-Length" branch requires the value to contain ASCII digits only, rejecting negative values and stricter than Python's `int()`, since the latter also accepts "+5", "1_0" or "-0". The conversion is still wrapped in a try/except block, because Python refuses to convert strings of more than 4300 digits. Once converted to a valid integer, the declared length is compared with the server limit (10 MB by default), and a larger value raises `BodyTooLarge` (`413 Content Too Large`). If content length declares a non-empty body, the parser reads until the `body_buffer` is big enough or breaking the loop if no data is received. In the case the buffer is smaller than the declared body size, an `InvalidBodyLength` (`400 Bad Request`) discards the request.
 
 ```python
 VALID_CONTENT_LENGTH = re.compile(r"[0-9]+")
@@ -227,7 +227,7 @@ if content_length > 0:
     body_buffer = body_buffer[content_length:]
 ```
 
-The "Transfer-Encoding" path of the logic is slightly longer; instead of declaring the total length up front, the sender splits the body into chunks, transferred as a sequence of length-delimited buffers. Each chunk starts with a string of hexadecimal digits which indicate the size of the chunk-data in octets, followed by CRLF and then the chunk itself, followed by another CRLF. The end of a body is marked by a zero-length chunk, followed by an optional trailer section and a final empty line [RFC 9112 §7.1]. Notice that, even though "transfer-encoding" header can have comma separated values, we only accept "chunked" as a single value; if there are more than one value declared, or if those values are unsupported or not valid, we raise `UnsupportedTransferEncoding` (`501 Not Implemented`) or `InvalidTransferEncoding` (`400 Bad Request`), respectively.
+The "Transfer-Encoding" path of the logic is slightly longer; instead of declaring the total length up front, the sender splits the body into chunks, transferred as a sequence of length-delimited buffers. Each chunk starts with a string of hexadecimal digits which indicate the size of the chunk-data in octets, followed by CRLF and then the chunk itself, followed by another CRLF. The end of a body is marked by a zero-length chunk, followed by an optional trailer section and a final empty line [RFC 9112 §7.1]. Notice that, even though "transfer-encoding" header can have comma separated values, only "chunked" is accepted, and as a single value; if more than one value is declared, or a known one the server doesn't support, it raises `UnsupportedTransferEncoding` (`501 Not Implemented`), any other value raises `InvalidTransferEncoding` (`400 Bad Request`).
 
 ```python
 if len(transfer_encoding) != 1:
@@ -242,9 +242,9 @@ else:
   raise InvalidTransferEncoding(transfer_encoding=transfer_encoding)
 ```
 
-Parsing a chunked body can be divided into several smaller functions so it reads better and it's more easily maintained and tested, avoiding that a single chunk of code takes on all the responsibility for a rather nuanced logic which inherently raises a lot of edge cases. Before getting into the details on parsing, let's break down the different helper function: `receive_chunked_data`, `read_exact` and `read_line`.
+Parsing a chunked body can be divided into several smaller functions so it reads better and it's more easily maintained and tested, avoiding that a single block of code takes on all the responsibility for a rather nuanced logic which inherently raises a lot of edge cases. Before getting into the details on parsing, let's break down the different helper functions: `receive_chunked_data`, `read_exact` and `read_line`.
 
-`receive_chunked_data` fairly straightforward, until a zero-length chunk isn't sent, this function keeps receive bytes through the open connection; if no data is received, it means the client closed the connection, and waiting for bytes that will never arrive would hang the single-threaded server [RFC 9112 §8], so we raise an `IncompleteChunkedBody` (`Bad Request`).
+`receive_chunked_data` fairly straightforward, it makes a single `recv()` call receiving bytes through the open connection; if no data is received, it means the client closed the connection, and waiting for bytes that will never arrive would hang the single-threaded server [RFC 9112 §8], so it raises `IncompleteChunkedBody` (`Bad Request`).
 
 ```python
 def receive_chunked_data(client_connection: socket) -> bytes:
@@ -255,7 +255,7 @@ def receive_chunked_data(client_connection: socket) -> bytes:
   return chunk_data
 ```
 
-Reading chunked data takes two kinds of reads: reading a line, like the chunk size or a trailer field, and reading an exact number of bytes, i.e., a chunk's data. `read_line` receives data until CRLF is present in the buffer or until the buffer grows past an imposed limit of 4 KB for each chunk line, in which case a `ChunkLineTooLarge` (`413 Payload Too Large`) is raised, preventing the buffer from growing forever. Once "\r\n" is found in the body buffer, we separate that chunk line from the rest of the buffer and check for the line size once again. Notice that the first size check compares with `max_line_size + 1` while the second compares to `max_line_size`, why? In the first case, since we're still receiving data, we could go over the limit once a "\r" character without a matching "\n" is received, which shouldn't count for the line size; the second check is in place in case the chunk line arrives complete but too long. Once we know the next chunk's size, read exact receives data until the buffer is greater than the declared size, reading the exact number of bytes as the chunk's body while the rest remains to be read as buffer.
+Reading chunked data takes two kinds of reads: reading a line, like the chunk size or a trailer field, and reading an exact number of bytes, i.e., a chunk's data. `read_line` receives data until CRLF is present in the buffer or until the buffer grows past an imposed limit of 4 KB for each chunk line, in which case a `ChunkLineTooLarge` (`413 Content Too Large`) is raised, preventing the buffer from growing forever. Once "\r\n" is found in the body buffer, we separate that chunk line from the rest of the buffer and check for the line size once again. Notice that the first size check compares with `max_line_size + 1` while the second compares to `max_line_size`, why? In the first case, since we're still receiving data, we could go over the limit once a "\r" character without a matching "\n" is received, which shouldn't count for the line size; the second check is in place in case the chunk line arrives complete but too long. Once we know the next chunk's size, `read_exact` receives data until the buffer holds at least the declared number of bytes, reading the exact that number as the chunk's body, while the rest remains in the buffer.
 
 ```python
 def read_line(client_connection: socket, body_buffer: bytes, max_line_size: int) -> Tuple[bytes, bytes]:
