@@ -286,11 +286,11 @@ def read_exact(client_connection: socket, body_buffer: bytes, chunk_size: int) -
   return body_chunk, body_buffer
 ```
 
-With these helpers, the loop in `parse_chunked_body` reads like the format itself, every iteration reads exactly one chunk, starting with the chunk-size line: a size in hexadecimal, possibly followed by extensions after a semicolon. Extensions are ignored, but they still have to be read to find the end of the line, so the whole line is limited to 4 KB [RFC 9112 §7.1.1]. The size must be valid hexadecimal and no larger than the 5 MB chunk limit. A size of zero ends the body, and what follows is the trailer section, which is read line by line and thrown away, with a total limit of 8 KB [RFC 9112 §7.1.2].
-
-Any other size means chunk data. Two more limits are checked before the data is read, 100,000 chunks per body and 10 MB for the whole body, so the chunk that would cross a limit is never read from the socket. Then read_exact reads the data, and the two bytes after it must be \r\n, which keeps a client that lies about a chunk's size from knocking the parser out of alignment.
+With these helpers, every loop iteration in `parse_chunked_body` reads exactly one chunk, starting with the chunk-size line: a size in hexadecimal, possibly followed by extensions after a semicolon. Extensions are ignored, but they still have to be read to find the end of the line, so the whole line is limited to 4 KB by default [RFC 9112 §7.1.1]. The size must be valid hexadecimal and no larger than the 5 MB chunk limit, otherwise `Invalid ChunkSize` (`400 Bad Request`) or `ChunkTooLarge` (`413 Content Too Large`) is raised, respectively.
 
 ```python
+VALID_CHUNK_SIZE = re.compile(rb"^[0-9A-Fa-f]+$")
+
 def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: ServerLimits = DEFAULT_LIMITS) -> bytes:
   chunks: List[bytes] = []
   body_size: int = 0
@@ -305,36 +305,44 @@ def parse_chunked_body(client_connection: socket, body_buffer: bytes, limits: Se
     chunk_size = int(chunk_size.decode("ascii"), 16)
     if chunk_size > limits.max_chunk_size:
       raise ChunkTooLarge(chunk_size, limits.max_chunk_size)
+```
 
-    if chunk_size == 0:
-      trailer_size = 0
-      while True:
-        trailer_line, body_buffer = read_line(client_connection, body_buffer, limits.max_chunk_line_size)
-    
-        if trailer_line == b"":
-          break
+A `chunk_size` of zero is the last chunk, only followed by an optional the trailer section, which is read line by line and thrown away. However, if the trailer section is larger than 8 KB, the server raises a `TrailerSectionTooLarge` (`413 Content Too Large`) [RFC 9112 §7.1.2]. An empty line ends both the section and the body, so the break leaves the loop with the buffer positioned right after the request.
 
-        trailer_size += len(trailer_line)
-        if trailer_size > limits.max_trailer_section_size:
-          raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_section_size)
-      break
+```python
+if chunk_size == 0:
+  trailer_size = 0
+  while True:
+	trailer_line, body_buffer = read_line(client_connection, body_buffer, limits.max_chunk_line_size)
 
-    if body_size + chunk_size > limits.max_body_size:
-      raise BodyTooLarge(body_size + chunk_size, limits.max_body_size)
+	if trailer_line == b"":
+	  break
 
-    if len(chunks) >= limits.max_chunk_count:
-      raise TooManyChunks(chunk_count=len(chunks) + 1, max_chunk_count=limits.max_chunk_count)
+	trailer_size += len(trailer_line)
+	if trailer_size > limits.max_trailer_section_size:
+	  raise TrailerSectionTooLarge(trailer_size, limits.max_trailer_section_size)
+  break
+```
 
-    body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
-    chunks.append(body_chunk)
-    body_size += chunk_size
+Any other size means data is present. Two more limits are checked before the data is read: 10 MB for the whole body and 100,000 chunks per body, so the chunk that would cross a limit is never read from the socket; these avoid the body growing too large, raising `BodyTooLarge` (`413 Content Too Large`) and many small chunks. Then read_exact reads the data, and the two bytes after it must be \r\n, which keeps a client that lies about a chunk's size from knocking the parser out of alignment.
 
-    delimiter, body_buffer = read_exact(client_connection, body_buffer, 2)
-    if delimiter != b"\r\n":
-      raise InvalidChunkDelimiter(delimiter)
+```python
+if body_size + chunk_size > limits.max_body_size:
+  raise BodyTooLarge(body_size + chunk_size, limits.max_body_size)
 
-  raw_body = b"".join(chunks)
-  return raw_body
+if len(chunks) >= limits.max_chunk_count:
+  raise TooManyChunks(chunk_count=len(chunks) + 1, max_chunk_count=limits.max_chunk_count)
+
+body_chunk, body_buffer = read_exact(client_connection, body_buffer, chunk_size)
+chunks.append(body_chunk)
+body_size += chunk_size
+
+delimiter, body_buffer = read_exact(client_connection, body_buffer, 2)
+if delimiter != b"\r\n":
+  raise InvalidChunkDelimiter(delimiter)
+
+raw_body = b"".join(chunks)
+return raw_body
 ```
 
 </details>
