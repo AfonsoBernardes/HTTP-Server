@@ -347,6 +347,16 @@ Then, the server reads the exact bytes the chunk size declared, appends them to 
   return raw_body
 ```
 
+HTTP/1.1 is a protocol which supports many features and many variants more, making their rigorous implementation and test a job for multiple, very skilled engineers. This parser focuses on the core fundamentals: safely reading, parsing and validating a request; when in doubt, the request is rejected. These limitations are conscious decisions, which include, but are not limited to, the bullet point below.
+
+  * A `Content-Length` list or repeated `Content-Length` lines are rejected even when the values are identical [RFC 9112 §6.3], and so are empty list elements such as `chunked,` [RFC 9110 §5.6.1.2] and whitespace before the semicolon in a chunk-size line [RFC 9112 §7.1.1]. A `POST`, `PUT` or `PATCH` without `Content-Length` or `Transfer-Encoding` gets a `411 Length Required`, where the RFC would treat the body as empty [RFC 9112 §6.3].
+
+  * HTTP/1.1 requires a `400 Bad Request` for a missing `Host` [RFC 9112 §3.2], but the server accepts it, while repeats are rejected.
+
+  * Headers are split on commas even inside quotes, `Cookie` isn't split, and headers are parsed as decoded text, not as raw octets [RFC 9112 §2.2].
+
+  * No timeouts and no keep-alive connections make a silent client blocks the server, moreover each connection carries one request, so leftover bytes after the body are discarded.
+
 </details>
 
 <details>
