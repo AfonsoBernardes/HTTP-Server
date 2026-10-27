@@ -17,7 +17,9 @@ class HandlerNotFound(HTTPServerException):
         super().__init__(f"no handler found for {method.value!r} {url!r}")
 
 
-class DuplicateRoute(DisplayableException):
+class DuplicateRoute(HTTPServerException):
+    status_code = HTTPResponseStatusCode.HTTP_409
+
     def __init__(self, path: str, method: HTTPRequestMethod):
         super().__init__(f"{method.value!r} already exists for path {path!r}")
 
