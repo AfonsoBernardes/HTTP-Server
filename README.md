@@ -383,6 +383,19 @@ class HTTPRouter:
     self.routes[path][method] = handler
 ```
 
+```python
+def resolve(self, path: str, method: HTTPRequestMethod) -> Callable[[HTTPRequest], HTTPResponse]:
+  route = self.routes.get(path)
+  if not route:
+    raise PathNotFound(path)
+
+  handler = route.get(method)
+  if not handler:
+    raise HandlerNotFound(path, method)
+
+  return handler
+```
+
 </details>
 
 <details>
