@@ -366,7 +366,7 @@ HTTP/1.1 is a protocol which supports many features and many variants more, maki
 
 As we've seen in the previous section and in [THEORY.md](./THEORY.md), a HTTP request states what a client wants to do (`METHOD`) with/ to which resource (`PATH`). When a request is sent, once it is parsed, the server needs to figure out what it intends to do: can the intended action be performed on the stated resource, if so, how? Does the server even know the resource exists?
 
-A router's main job is to map a `METHOD`/ `PATH` pair to a handler, i.e., a function which uses the request's information to produce a response. The `HTTPRequest` class is simply a collection of resources and the actions which can be performed on them. At its core, `routes` stores all this information using `path` as the first-level key, which points to a dictionary where a `HTTPRequestMethod` points to a handler. This way, the same path can point to several different method, but the `path` - `METHOD` combination is unique; if we try to include a duplicate combination, we get `DuplicateRoute` (`409 Conflict`).
+A router's main job is to map a `METHOD`/ `PATH` pair to a handler, i.e., a function which uses the request's information to produce a response. The `HTTPRequest` class is simply a collection of resources and the actions which can be performed on them. At its core, `routes` stores all this information using `path` as the first-level key, which points to a dictionary where a `HTTPRequestMethod` points to a handler. This way, the same path can point to several different methods, but the `path` - `method` combination is unique; if we try to include a duplicate combination, we get `DuplicateRoute` (`409 Conflict`).
 
 ```python
 class HTTPRouter:
@@ -382,6 +382,8 @@ class HTTPRouter:
 
     self.routes[path][method] = handler
 ```
+
+Once the server parses a request and extracts its `path` and `method`, the router searches in the `routes` dictionary for the handler function: if there is no `path` key, it responding with `PathNotFound` (`404 Not Found`), or if the `path` does not support a given `method`, it responds with `HandlerNotFound` (`405 Method Not Allowed`). TODO: Check exception name. 
 
 ```python
 def resolve(self, path: str, method: HTTPRequestMethod) -> Callable[[HTTPRequest], HTTPResponse]:
