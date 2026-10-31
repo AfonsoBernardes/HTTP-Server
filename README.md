@@ -398,6 +398,18 @@ def resolve(self, path: str, method: HTTPRequestMethod) -> Callable[[HTTPRequest
   return handler
 ```
 
+```python
+def get(self, path: str) -> Callable:
+  return self._decorator(path, HTTPRequestMethod.GET)
+
+def _decorator(self, path: str, method: HTTPRequestMethod) -> Callable:
+  def _wrapper(handler: Callable) -> Callable:
+    self.include_route(path, method, handler)
+    return handler
+
+  return _wrapper
+```
+
 </details>
 
 <details>
