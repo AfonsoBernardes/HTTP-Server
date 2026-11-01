@@ -398,6 +398,8 @@ def resolve(self, path: str, method: HTTPRequestMethod) -> Callable[[HTTPRequest
   return handler
 ```
 
+TODO: give example on how to create endpoint
+
 ```python
 def get(self, path: str) -> Callable:
   return self._decorator(path, HTTPRequestMethod.GET)
