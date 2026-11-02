@@ -398,7 +398,7 @@ def resolve(self, path: str, method: HTTPRequestMethod) -> Callable[[HTTPRequest
   return handler
 ```
 
-For a server to be able to produce a response for a request, it needs to know how to handle it. In FastAPI, we wrap a function with a decorator to define an endpoint: the decorator states the `method` and `path`, while the function defines how to act on the resource. Following this principle, `HTTPRouter` defines a decorator function which accepts a `path` and a `method`, wrapping the `handler` function (which defines the logic to interact with the resource) and including them in `self.routes`. This class defines several helper decorators, like `get` or `delete`, with which the endpoints are defined.
+For a server to be able to produce a response for a request, it needs to know how to handle it. In FastAPI, we wrap a function with a decorator to define an endpoint: the decorator states the `method` and `path`, while the function defines how to act on the resource. Following this principle, `HTTPRouter` defines a decorator function which accepts a `path` and a `method`, wrapping the `handler` function (which defines the logic to interact with the resource) and registering them in `self.routes`. This class defines one decorator per HTTP method, with which the endpoints are defined; this is the same as calling `router.include_route("/path", method, handler)`.
 
 ```python
 def _decorator(self, path: str, method: HTTPRequestMethod) -> Callable:
