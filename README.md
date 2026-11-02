@@ -383,7 +383,7 @@ class HTTPRouter:
     self.routes[path][method] = handler
 ```
 
-Once the server parses a request and extracts its `path` and `method`, the router searches in the `routes` dictionary for the handler function: if there is no `path` key, it responding with `PathNotFound` (`404 Not Found`), or if the `path` does not support a given `method`, it responds with `HandlerNotFound` (`405 Method Not Allowed`). TODO: Check exception name. 
+Once the server parses a request and extracts its `path` and `method`, the router searches in the `routes` dictionary for the handler function: if there is no `path` key, it responding with `PathNotFound` (`404 Not Found`), or if the `path` does not support a given `method`, it responds with `HandlerNotFound` (`405 Method Not Allowed`). TODO: Check exception name - different from status message. 
 
 ```python
 def resolve(self, path: str, method: HTTPRequestMethod) -> Callable[[HTTPRequest], HTTPResponse]:
@@ -398,19 +398,21 @@ def resolve(self, path: str, method: HTTPRequestMethod) -> Callable[[HTTPRequest
   return handler
 ```
 
-TODO: give example on how to create endpoint
+For a server to be able to produce a response for a request, it needs to know how to handle it. In FastAPI, we wrap a function with a decorator to define an endpoint: the decorator states the `method` and `path`, while the function defines the logic acting on the resource. Following this principle, `HTTPRouter` defines a decorator function which accepts a `path` and a `method`, wrapping the function (`handler`) and including them in `self.routes`. This class defines several helper decorators, like `get` or `delete`, with which the endpoints are defined.
 
 ```python
-def get(self, path: str) -> Callable:
-  return self._decorator(path, HTTPRequestMethod.GET)
-
 def _decorator(self, path: str, method: HTTPRequestMethod) -> Callable:
   def _wrapper(handler: Callable) -> Callable:
     self.include_route(path, method, handler)
     return handler
 
   return _wrapper
+
+def get(self, path: str) -> Callable:
+  return self._decorator(path, HTTPRequestMethod.GET)
 ```
+
+TODO: give example on how to create endpoint
 
 </details>
 
